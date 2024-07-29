@@ -1,5 +1,5 @@
 
-use reflect::{TypeInfo, Constructor, Method};
+use reflect::{TypeInfo, Constructor, Method };
 use reflect_macros::reflect_type;
 use std::any::Any;
 

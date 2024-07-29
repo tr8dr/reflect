@@ -55,6 +55,8 @@ pub fn reflect_type(_attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
 
+    //eprintln!("method statement: {:?}", method_registrations.get(0).unwrap().to_string());
+
     let expanded = quote! {
         #input
 
@@ -143,6 +145,7 @@ fn generate_constructor_registration(
     return_type: &TokenStream2,
     return_statement: &TokenStream2
 ) -> TokenStream2 {
+    let register_ident = format_ident!("_REGISTER_{}", constructor_name);
     quote! {
         #[derive(Clone)]
         struct #constructor_name;
@@ -170,7 +173,9 @@ fn generate_constructor_registration(
             }
         }
 
-        register_constructor::<#short_type_name>(Box::new(#constructor_name));
+        static #register_ident: () = {
+            register_constructor::<#short_type_name>(Box::new(#constructor_name));
+        };
     }
 }
 
@@ -186,6 +191,7 @@ fn generate_method_registration(
     return_type: &TokenStream2,
     return_statement: &TokenStream2
 ) -> TokenStream2 {
+    let register_ident = format_ident!("_REGISTER_{}", method_impl_name);
     quote! {
         #[derive(Clone)]
         struct #method_impl_name {
@@ -219,9 +225,11 @@ fn generate_method_registration(
             }
         }
 
-        register_method::<#short_type_name>(Box::new(#method_impl_name {
-            name: stringify!(#method_name).to_string(),
-        }));
+        static #register_ident: () = {
+            register_method::<#short_type_name>(Box::new(#method_impl_name {
+                name: stringify!(#method_name).to_string(),
+            }));
+        };
     }
 }
 
