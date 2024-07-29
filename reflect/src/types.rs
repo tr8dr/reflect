@@ -4,22 +4,26 @@ use std::sync::Arc;
 
 
 ///
-/// Reflection information for any callable function
-pub trait Callable: Send + Sync {
-    /// call a function or ctor
+/// Constructor reflection information
+///
+pub trait Constructor {
+    /// call a ctor
     ///
     /// # Arguments
     /// * `args`: a list of arguments to the ctor
     ///
     /// # Returns
-    /// * function value or constructed instance
-    fn call(&self, args: &[Box<dyn Any>]) -> Result<Box<dyn Any>, String>;
+    /// * constructed instance
+    fn create(&self, args: &[Box<dyn Any>]) -> Result<Box<dyn Any>, String>;
 
     /// Return the argument signature
     fn arg_types(&self) -> &[TypeId];
 
     /// The object type associated with this call
     fn return_type(&self) -> TypeId;
+
+    /// create a boxed clone of this struct
+    fn clone_boxed(&self) -> Box<dyn Constructor>;
 
     /// Determine if arguments match this callable
     ///
@@ -43,20 +47,46 @@ pub trait Callable: Send + Sync {
 ///
 /// Constructor reflection information
 ///
-pub trait Constructor: Callable {
-    /// create a boxed clone of this struct
-    fn clone_boxed(&self) -> Box<dyn Constructor>;
-}
-
-///
-/// Constructor reflection information
-///
-pub trait Method: Callable {
+pub trait Method {
     /// method name
     fn name(&self) -> &String;
 
+    /// call a method on object
+    ///
+    /// # Arguments
+    /// * `obj`: object on which the method should be called
+    /// * `args`: a list of arguments to the ctor
+    ///
+    /// # Returns
+    /// * function value
+    fn call(&self, obj: &Box<dyn Any>, args: &[Box<dyn Any>]) -> Result<Box<dyn Any>, String>;
+
+    /// Return the argument signature
+    fn arg_types(&self) -> &[TypeId];
+
+    /// The object type associated with this call
+    fn return_type(&self) -> TypeId;
+
     /// create a boxed clone of this struct
-    fn clone_boxed(&self) -> Box<dyn Method>;
+    fn clone_boxed(&self) -> Box<dyn Constructor>;
+
+    /// Determine if arguments match this callable
+    ///
+    /// # Arguments
+    /// - `args`: array of arguments
+    fn matching(&self, args: &[Box<dyn Any>]) -> bool {
+        let arg_types = self.arg_types();
+
+        // Check arity (does the number of arguments match?)
+        if arg_types.len() != args.len() {
+            return false;
+        }
+
+        // Check if each argument type matches
+        arg_types.iter().zip(args.iter()).all(|(expected_type, arg)| {
+            arg.type_id() == *expected_type
+        })
+    }
 }
 
 //
@@ -118,7 +148,7 @@ impl TypeInfo {
     ///
     /// # Returns
     /// - method result `Result<Box<dyn Any>, String>`)
-    pub fn call (&self, name: &String, args: &[Box<dyn Any>]) -> Result<Box<dyn Any>, String> {
+    pub fn call (&self, obj: &Box<dyn Any>, name: &String, args: &[Box<dyn Any>]) -> Result<Box<dyn Any>, String> {
         // find matching ctor (if any)
         let optmethod = self.methods.iter().find(|&method| {
            method.name() == name && method.matching(args)
@@ -127,7 +157,7 @@ impl TypeInfo {
         // check whether we found a ctor, then call
         match optmethod {
             Some(&ref method) => {
-                method.call(args)
+                method.call(obj, args)
             }
             None => {
                 return Err(format!("could not find method: '{}' for {} arguments", name, args.len()));
