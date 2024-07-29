@@ -1,0 +1,24 @@
+[package]
+authors = ["Jonathan Shore <jonathan.shore@gmail.com>"]
+categories = ["meta"]
+description = "Reflection capabilities for rust"
+keywords = ["reflection", "ffi"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/tr8dr/reflect"
+name = "reflect"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+path = "src/lib.rs"
+proc-macro = true
+
+
+[dependencies]
+lazy_static = "1.4.0"
+syn = { version = "1.0", features = ["full"] }
+quote = "1.0"
+proc-macro2 = "1.0"
+once_cell = "1.19.0"
+
