@@ -19,22 +19,18 @@ impl Test1 {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
 
-    #[test]
-    fn test_ctors1() {
-        let args = &[
-            Box::new(3i32) as Box<dyn Any>,
-            Box::new(3.1415926f64) as Box<dyn Any>
-        ];
-        let itype = TypeInfo::find_type(&String::from("Test1")).expect("could not find type");
+#[test]
+fn test_ctors1() {
+    let args = &[
+        Box::new(3i32) as Box<dyn Any>,
+        Box::new(3.1415926f64) as Box<dyn Any>
+    ];
+    let itype = TypeInfo::find_type(&String::from("Test1")).expect("could not find type");
 
-        //let rawobj = reflect_create("Test1", args).expect("failed to call ctor");
-        //let obj = rawobj.downcast_ref::<Test1>().expect("faied to downcast to type");
+    //let rawobj = reflect_create("Test1", args).expect("failed to call ctor");
+    //let obj = rawobj.downcast_ref::<Test1>().expect("faied to downcast to type");
 
-        //assert_eq!(obj.alpha, 3);
-        //assert_eq!(obj.beta, 3.1415926);
-    }
+    //assert_eq!(obj.alpha, 3);
+    //assert_eq!(obj.beta, 3.1415926);
 }
