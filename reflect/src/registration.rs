@@ -34,7 +34,7 @@ pub fn type_shortname<T: 'static>() -> String {
 /// # Returns
 /// - `Some(typeinfo)` OR
 /// - `None`
-pub fn find_type(name: &String) -> Option<Arc<TypeInfo>> {
+pub fn find_type(name: &str) -> Option<Arc<TypeInfo>> {
     let mut registry = TYPE_REGISTRY.lock().unwrap();
     match registry.get(name) {
         Some(info) => Some(info.clone()),

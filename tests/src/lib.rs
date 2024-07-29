@@ -11,5 +11,6 @@
 //! fit method, before calling, the arguments will be transformed.
 //!
 
+#[cfg(test)]
 mod test_ctors1;
 

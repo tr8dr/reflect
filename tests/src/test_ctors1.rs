@@ -1,5 +1,8 @@
 
-use reflect::{reflect_type, find_type};
+use reflect::{TypeInfo, Constructor, Method};
+use reflect_macros::reflect_type;
+use std::any::Any;
+
 
 struct Test1 {
     alpha: i32,
@@ -8,18 +11,21 @@ struct Test1 {
 
 #[reflect_type]
 impl Test1 {
-    fn new (a: i32) -> Self {
+    fn create1 (a: i32) -> Self {
         return Test1 { alpha: a, beta: f64::from(a) * f64::from(a) };
     }
-    fn new (a: i32, b: f64) -> Self {
+    fn create2 (a: i32, b: f64) -> Self {
         return Test1 { alpha: a, beta: b };
     }
 }
 
 #[test]
 fn test_ctors1() {
-    let args =&[Box::new(3i32), Box::new(3.1415926f64)];
-    let itype = TypeInfo::find_type ("Test1").expect ("could not find type");
+    let args =&[
+        Box::new(3i32) as Box<dyn Any>,
+        Box::new(3.1415926f64) as Box<dyn Any>
+    ];
+    let itype = TypeInfo::find_type (&String::from("Test1")).expect ("could not find type");
 
     //let rawobj = reflect_create("Test1", args).expect("failed to call ctor");
     //let obj = rawobj.downcast_ref::<Test1>().expect("faied to downcast to type");

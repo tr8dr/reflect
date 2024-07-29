@@ -1,6 +1,6 @@
 [package]
 authors = ["Jonathan Shore <jonathan.shore@gmail.com>"]
-categories = ["meta"]
+categories = ["development-tools"]
 description = "Reflection capabilities for rust"
 keywords = ["reflection", "ffi"]
 license = "MIT"
@@ -12,7 +12,6 @@ edition = "2021"
 
 [lib]
 path = "src/lib.rs"
-proc-macro = true
 
 
 [dependencies]

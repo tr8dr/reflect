@@ -83,7 +83,7 @@ impl TypeInfo {
     ///
     /// # Returns
     /// - type info or `None`
-    fn find_type(name: &String) -> Option<Arc<TypeInfo>> {
+    pub fn find_type(name: &str) -> Option<Arc<TypeInfo>> {
         crate::find_type (name)
     }
 
@@ -94,7 +94,7 @@ impl TypeInfo {
     ///
     /// # Returns
     /// - new object instance (in the form of `Result<Box<dyn Any>, String>`)
-    fn create (&self, args: &[Box<dyn Any>]) -> Result<Box<dyn Any>, String> {
+    pub fn create (&self, args: &[Box<dyn Any>]) -> Result<Box<dyn Any>, String> {
         // find matching ctor (if any)
         let optctor = self.constructors.iter().find(|&ctor| {
            ctor.matching(args)
@@ -119,7 +119,7 @@ impl TypeInfo {
     ///
     /// # Returns
     /// - method result `Result<Box<dyn Any>, String>`)
-    fn call (&self, name: &String, args: &[Box<dyn Any>]) -> Result<Box<dyn Any>, String> {
+    pub fn call (&self, name: &String, args: &[Box<dyn Any>]) -> Result<Box<dyn Any>, String> {
         // find matching ctor (if any)
         let optmethod = self.methods.iter().find(|&method| {
            method.name() == name && method.matching(args)
