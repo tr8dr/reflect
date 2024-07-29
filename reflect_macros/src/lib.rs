@@ -16,9 +16,6 @@ use quote::{quote, format_ident};
 use syn::{parse_macro_input, ItemImpl, ImplItem, ImplItemMethod, ReturnType, Type, TypePath, FnArg, Pat};
 use proc_macro2::TokenStream as TokenStream2;
 
-use reflect::{register_constructor, register_method};
-use reflect::{Constructor, Method, TypeInfo};
-
 
 /// Attribute to reflect ctors and methods in a type implementation
 ///

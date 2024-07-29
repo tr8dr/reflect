@@ -2,5 +2,4 @@
 members = ["reflect_macros",
     "reflect",
     "reflect_macros",
-    "tests"
 ]
