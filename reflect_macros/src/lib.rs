@@ -55,7 +55,7 @@ pub fn reflect_type(_attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
 
-    //eprintln!("method statement: {:?}", method_registrations.get(0).unwrap().to_string());
+    eprintln!("method statement: {:?}", method_registrations.get(0).unwrap().to_string());
 
     let expanded = quote! {
         #input
@@ -263,7 +263,7 @@ fn is_constructor(method: &ImplItemMethod) -> bool {
         if let Type::Path(type_path) = rtype {
             if let Some(segment) = type_path.path.segments.last() {
                 eprintln! ("type path: {:?}", segment.ident);
-                return segment.ident != "Self";
+                return segment.ident == "Self";
             }
         }
         false
