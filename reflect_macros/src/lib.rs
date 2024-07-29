@@ -85,8 +85,8 @@ fn extract_short_type_name(type_name: &Type) -> proc_macro2::Ident {
 /// - for either a method or a ctor
 fn generate_registration(method: &ImplItemMethod, short_type_name: &proc_macro2::Ident) -> TokenStream2 {
     let method_name = &method.sig.ident;
-    let constructor_name = format_ident!("{}Constructor", method_name);
-    let method_impl_name = format_ident!("{}Method", method_name);
+    let constructor_name = format_ident!("{}Constructor", ident_camel_case(method_name));
+    let method_impl_name = format_ident!("{}Method", ident_camel_case(method_name));
 
     fn generate_arg_names(args: &[(proc_macro2::Ident, &Type)]) -> Vec<TokenStream2> {
         args.iter().map(|(name, _)| quote! { #name }).collect()
@@ -150,7 +150,7 @@ fn generate_constructor_registration(
         #[derive(Clone)]
         struct #constructor_name;
 
-        impl Callable for #constructor_name {
+        impl ::reflect::Callable for #constructor_name {
             fn call(&self, args: &[Box<dyn std::any::Any>]) -> Result<Box<dyn std::any::Any>, String> {
                 #(#arg_conversions)*
                 let result = #short_type_name::#method_name(#(#arg_names),*);
@@ -167,14 +167,14 @@ fn generate_constructor_registration(
             }
         }
 
-        impl Constructor for #constructor_name {
-            fn clone_box(&self) -> Box<dyn Constructor> {
+        impl ::reflect::Constructor for #constructor_name {
+            fn clone_boxed(&self) -> Box<dyn Constructor> {
                 Box::new(self.clone())
             }
         }
 
         static #register_ident: () = {
-            register_constructor::<#short_type_name>(Box::new(#constructor_name));
+            ::reflect::register_constructor::<#short_type_name>(Box::new(#constructor_name));
         };
     }
 }
@@ -198,7 +198,7 @@ fn generate_method_registration(
             name: String,
         }
 
-        impl Callable for #method_impl_name {
+        impl ::reflect::Callable for #method_impl_name {
             fn call(&self, args: &[Box<dyn std::any::Any>]) -> Result<Box<dyn std::any::Any>, String> {
                 #(#arg_conversions)*
                 let result = #short_type_name::#method_name(#(#arg_names),*);
@@ -215,18 +215,18 @@ fn generate_method_registration(
             }
         }
 
-        impl Method for #method_impl_name {
+        impl ::reflect::Method for #method_impl_name {
             fn name(&self) -> &String {
                 &self.name
             }
 
-            fn clone_box(&self) -> Box<dyn Method> {
+            fn clone_boxed(&self) -> Box<dyn Method> {
                 Box::new(self.clone())
             }
         }
 
         static #register_ident: () = {
-            register_method::<#short_type_name>(Box::new(#method_impl_name {
+            ::reflect::register_method::<#short_type_name>(Box::new(#method_impl_name {
                 name: stringify!(#method_name).to_string(),
             }));
         };
@@ -256,19 +256,43 @@ fn extract_args(method: &ImplItemMethod) -> Vec<(proc_macro2::Ident, &Type)> {
     }).collect()
 }
 
-
+/// Determine if is ctor based on:
+/// - return type is self
 fn is_constructor(method: &ImplItemMethod) -> bool {
-    // Check if the method name starts with "new"
-    method.sig.ident.to_string().starts_with("new") &&
+    fn is_self_type(rtype: &Type) -> bool {
+        if let Type::Path(type_path) = rtype {
+            if let Some(segment) = type_path.path.segments.last() {
+                eprintln! ("type path: {:?}", segment.ident);
+                return segment.ident != "Self";
+            }
+        }
+        false
+    }
+
     // Check if the return type is Self
     matches!(method.sig.output, ReturnType::Type(_, ref ty) if is_self_type(ty))
 }
 
-fn is_self_type(ty: &Type) -> bool {
-    if let Type::Path(type_path) = ty {
-        if let Some(segment) = type_path.path.segments.last() {
-            return segment.ident == "Self";
+/// Convert to camel-case
+fn to_camel_case(s: &str) -> String {
+    let mut result = String::with_capacity(s.len());
+    let mut capitalize_next = true;
+
+    for ch in s.chars() {
+        if ch == '_' {
+            capitalize_next = true;
+        } else if capitalize_next {
+            result.extend(ch.to_uppercase());
+            capitalize_next = false;
+        } else {
+            result.push(ch.to_lowercase().next().unwrap());
         }
     }
-    false
+
+    result
+}
+
+/// Convert identifier to camel-case
+fn ident_camel_case(s: &proc_macro2::Ident) -> String {
+    return to_camel_case(&s.to_string());
 }
