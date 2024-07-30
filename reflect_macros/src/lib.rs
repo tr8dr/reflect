@@ -12,7 +12,7 @@
 //!
 
 use proc_macro::TokenStream;
-use quote::{quote, format_ident};
+use quote::{quote, format_ident, ToTokens};
 use syn::{parse_macro_input, ItemImpl, ImplItem, ImplItemMethod, ReturnType, Type, TypePath, FnArg, Pat};
 use proc_macro2::TokenStream as TokenStream2;
 
@@ -36,16 +36,13 @@ pub fn reflect_type(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as ItemImpl);
     let type_name = &input.self_ty;
 
-    // get type name from token stream
-    let short_type_name = extract_short_type_name(type_name);
-
     // collect ctors and methods
     let mut constructor_registrations = vec![];
     let mut method_registrations = vec![];
 
     for item in &input.items {
         if let ImplItem::Method(method) = item {
-            let registration = generate_registration(&method, &short_type_name);
+            let registration = generate_registration(&method, &type_name);
 
             if is_constructor(&method) {
                 constructor_registrations.push(registration);
@@ -55,7 +52,7 @@ pub fn reflect_type(_attr: TokenStream, item: TokenStream) -> TokenStream {
         }
     }
 
-    eprintln!("method statement: {:?}", method_registrations.get(0).unwrap().to_string());
+    eprintln!("ctor statement: {:?}", constructor_registrations.get(0).unwrap().to_string());
 
     let expanded = quote! {
         #input
@@ -81,12 +78,25 @@ fn extract_short_type_name(type_name: &Type) -> proc_macro2::Ident {
     }
 }
 
+/// Get full type string
+fn get_type_path(ty: &Type) -> Option<proc_macro2::TokenStream> {
+    if let Type::Path(type_path) = ty {
+        Some(type_path.to_token_stream())
+    } else {
+        None
+    }
+}
+
+
 /// Generate registration code
 /// - for either a method or a ctor
-fn generate_registration(method: &ImplItemMethod, short_type_name: &proc_macro2::Ident) -> TokenStream2 {
+fn generate_registration(method: &ImplItemMethod, type_name: &Box<Type>) -> TokenStream2 {
     let method_name = &method.sig.ident;
     let constructor_name = format_ident!("{}Constructor", ident_camel_case(method_name));
     let method_impl_name = format_ident!("{}Method", ident_camel_case(method_name));
+
+    // get type name from token stream
+    let short_type_name = extract_short_type_name(type_name);
 
     fn generate_arg_names(args: &[(proc_macro2::Ident, &Type)]) -> Vec<TokenStream2> {
         args.iter().map(|(name, _)| quote! { #name }).collect()
@@ -100,7 +110,7 @@ fn generate_registration(method: &ImplItemMethod, short_type_name: &proc_macro2:
         args.iter().enumerate().map(|(i, (name, ty))| {
             quote! {
                 let #name = match args.get(#i).and_then(|arg| arg.downcast_ref::<#ty>()) {
-                    Some(value) => value,
+                    Some(value) => *value,
                     None => return Err(format!("Invalid argument type for parameter {}", #i)),
                 };
             }
@@ -114,6 +124,21 @@ fn generate_registration(method: &ImplItemMethod, short_type_name: &proc_macro2:
         }
     }
 
+    fn extract_args(method: &ImplItemMethod) -> Vec<(proc_macro2::Ident, &Type)> {
+        method.sig.inputs.iter().filter_map(|arg| {
+            if let FnArg::Typed(pat_type) = arg {
+                if let Pat::Ident(pat_ident) = &*pat_type.pat {
+                    Some((pat_ident.ident.clone(), &*pat_type.ty))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        }).collect()
+    }
+
+
     let args = extract_args(method);
     let arg_conversions = generate_arg_conversions(&args);
     let arg_names = generate_arg_names(&args);
@@ -123,11 +148,12 @@ fn generate_registration(method: &ImplItemMethod, short_type_name: &proc_macro2:
 
     if is_constructor(method) {
         generate_constructor_registration(
-            short_type_name, method_name, &constructor_name, &arg_conversions,
+            &short_type_name, method_name, &constructor_name, &arg_conversions,
             &arg_names, &arg_types, &return_type, &return_statement)
     } else {
         generate_method_registration(
-            short_type_name, method_name, &method_impl_name, &arg_conversions,
+            type_name,
+            &short_type_name, method_name, &method_impl_name, &arg_conversions,
             &arg_names, &arg_types, &return_type, &return_statement)
     }
 }
@@ -150,8 +176,8 @@ fn generate_constructor_registration(
         #[derive(Clone)]
         struct #constructor_name;
 
-        impl ::reflect::Callable for #constructor_name {
-            fn call(&self, args: &[Box<dyn std::any::Any>]) -> Result<Box<dyn std::any::Any>, String> {
+        impl ::reflect::Constructor for #constructor_name {
+            fn create(&self, args: &[Box<dyn std::any::Any>]) -> Result<Box<dyn std::any::Any>, String> {
                 #(#arg_conversions)*
                 let result = #short_type_name::#method_name(#(#arg_names),*);
                 #return_statement
@@ -165,23 +191,23 @@ fn generate_constructor_registration(
             fn return_type(&self) -> std::any::TypeId {
                 std::any::TypeId::of::<#return_type>()
             }
-        }
 
-        impl ::reflect::Constructor for #constructor_name {
             fn clone_boxed(&self) -> Box<dyn Constructor> {
                 Box::new(self.clone())
             }
         }
 
-        static #register_ident: () = {
+        #[ctor::ctor]
+        fn #register_ident () {
             ::reflect::register_constructor::<#short_type_name>(Box::new(#constructor_name));
-        };
+        }
     }
 }
 
 /// Generate Method type
 /// - this will be an instance of the `Method` trait and ultimately `Callable`
 fn generate_method_registration(
+    type_name: &Box<Type>,
     short_type_name: &proc_macro2::Ident,
     method_name: &proc_macro2::Ident,
     method_impl_name: &proc_macro2::Ident,
@@ -191,17 +217,22 @@ fn generate_method_registration(
     return_type: &TokenStream2,
     return_statement: &TokenStream2
 ) -> TokenStream2 {
+    let type_name = get_type_path(type_name).expect("expected a viable type");
     let register_ident = format_ident!("_REGISTER_{}", method_impl_name);
+
     quote! {
         #[derive(Clone)]
         struct #method_impl_name {
             name: String,
         }
 
-        impl ::reflect::Callable for #method_impl_name {
-            fn call(&self, args: &[Box<dyn std::any::Any>]) -> Result<Box<dyn std::any::Any>, String> {
+        impl ::reflect::Method for #method_impl_name {
+            fn call(&self, obj: &Box<dyn std::any::Any>, args: &[Box<dyn std::any::Any>]) -> Result<Box<dyn std::any::Any>, String> {
                 #(#arg_conversions)*
-                let result = #short_type_name::#method_name(#(#arg_names),*);
+
+                let realobj = obj.downcast_ref::<#type_name>()
+                    .expect("Failed to downcast to correct type");
+                let result = realobj.#method_name(#(#arg_names),*);
                 #return_statement
             }
 
@@ -213,9 +244,7 @@ fn generate_method_registration(
             fn return_type(&self) -> std::any::TypeId {
                 std::any::TypeId::of::<#return_type>()
             }
-        }
 
-        impl ::reflect::Method for #method_impl_name {
             fn name(&self) -> &String {
                 &self.name
             }
@@ -225,36 +254,15 @@ fn generate_method_registration(
             }
         }
 
-        static #register_ident: () = {
+        #[ctor::ctor]
+        fn #register_ident () {
             ::reflect::register_method::<#short_type_name>(Box::new(#method_impl_name {
                 name: stringify!(#method_name).to_string(),
             }));
-        };
+        }
     }
 }
 
-
-
-/// Get Arguments for function
-///
-/// # Arguments
-/// - `method`: method AST
-///
-/// # Returns
-/// - vector of arguments
-fn extract_args(method: &ImplItemMethod) -> Vec<(proc_macro2::Ident, &Type)> {
-    method.sig.inputs.iter().filter_map(|arg| {
-        if let FnArg::Typed(pat_type) = arg {
-            if let Pat::Ident(pat_ident) = &*pat_type.pat {
-                Some((pat_ident.ident.clone(), &*pat_type.ty))
-            } else {
-                None
-            }
-        } else {
-            None
-        }
-    }).collect()
-}
 
 /// Determine if is ctor based on:
 /// - return type is self
@@ -262,7 +270,6 @@ fn is_constructor(method: &ImplItemMethod) -> bool {
     fn is_self_type(rtype: &Type) -> bool {
         if let Type::Path(type_path) = rtype {
             if let Some(segment) = type_path.path.segments.last() {
-                eprintln! ("type path: {:?}", segment.ident);
                 return segment.ident == "Self";
             }
         }

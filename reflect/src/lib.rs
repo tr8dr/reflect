@@ -15,7 +15,7 @@
 mod types;
 mod registration;
 
-pub use types::{Callable,Constructor, Method, TypeInfo};
+pub use types::{Constructor, Method, TypeInfo};
 pub use registration::{register_constructor, register_method, find_type};
 
 

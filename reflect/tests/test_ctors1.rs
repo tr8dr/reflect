@@ -18,9 +18,9 @@ impl Test1 {
         return Test1 { alpha: a, beta: b };
     }
 
-    fn f(&self, x: i32) -> i32 {
-        return x * self.alpha;
-    }
+    //fn f(&self, x: i32) -> i32 {
+    //    return x * self.alpha;
+    //}
 }
 
 

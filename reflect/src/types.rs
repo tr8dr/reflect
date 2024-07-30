@@ -6,7 +6,7 @@ use std::sync::Arc;
 ///
 /// Constructor reflection information
 ///
-pub trait Constructor {
+pub trait Constructor: Send + Sync {
     /// call a ctor
     ///
     /// # Arguments
@@ -47,7 +47,7 @@ pub trait Constructor {
 ///
 /// Constructor reflection information
 ///
-pub trait Method {
+pub trait Method: Send + Sync {
     /// method name
     fn name(&self) -> &String;
 
@@ -68,7 +68,7 @@ pub trait Method {
     fn return_type(&self) -> TypeId;
 
     /// create a boxed clone of this struct
-    fn clone_boxed(&self) -> Box<dyn Constructor>;
+    fn clone_boxed(&self) -> Box<dyn Method>;
 
     /// Determine if arguments match this callable
     ///
@@ -132,7 +132,7 @@ impl TypeInfo {
         // check whether we found a ctor, then call
         match optctor {
             Some(&ref ctor) => {
-                ctor.call(args)
+                ctor.create(args)
             }
             None => {
                 return Err(format!("could not find ctor for {} arguments", args.len()));
