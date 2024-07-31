@@ -257,7 +257,7 @@ let input = parse_macro_input!(item as ItemImpl);
                         }
 
                         /// implementation of Method trait for the given method
-                        impl ::reflect::Method for #fun_impl_name {
+                        impl ::reflect::StaticFunction for #fun_impl_name {
                             fn call(&self, args: &[Box<dyn std::any::Any>]) -> Result<Box<dyn std::any::Any>, String> {
                                 #(#arg_conversions)*
                                 let result = #short_type_name::#method_name(#(#arg_names),*);

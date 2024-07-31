@@ -14,8 +14,10 @@
 
 mod types;
 mod registration;
+mod parts;
 
-pub use types::{Constructor, Method, Function, TypeInfo};
+pub use parts::{Constructor, Method, StaticFunction, Function};
+pub use types::TypeInfo;
 pub use registration::{register_constructor, register_method, register_function, find_type};
 
 

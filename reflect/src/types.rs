@@ -1,116 +1,36 @@
 
 use std::any::{Any, TypeId};
 use std::sync::Arc;
-
-///
-/// Callable Function
-///
-pub trait Function: Send + Sync {
-    /// Return the argument signature
-    fn arg_types(&self) -> &[TypeId];
-
-    /// The object type associated with this call
-    fn return_type(&self) -> TypeId;
-
-    /// Determine if arguments match this callable
-    ///
-    /// # Arguments
-    /// - `args`: array of arguments
-    fn matching(&self, args: &[Box<dyn Any>]) -> bool {
-        let arg_types = self.arg_types();
-
-        // Check arity (does the number of arguments match?)
-        if arg_types.len() != args.len() {
-            return false;
-        }
-
-        // Check if each argument type matches
-        arg_types.iter().zip(args.iter()).all(|(expected_type, arg)| {
-            let actual_type = (**arg).type_id();
-            actual_type == *expected_type
-        })
-    }
-
-}
+use crate::{Constructor,Method,StaticFunction};
 
 
-///
-/// Constructor reflection information
-///
-pub trait Constructor: Function {
-    /// call a ctor
-    ///
-    /// # Arguments
-    /// * `args`: a list of arguments to the ctor
-    ///
-    /// # Returns
-    /// * constructed instance
-    fn create(&self, args: &[Box<dyn Any>]) -> Result<Box<dyn Any>, String>;
-
-    /// create a boxed clone of this struct
-    fn clone_boxed(&self) -> Box<dyn Constructor>;
-}
-
-
-///
-/// Constructor reflection information
-///
-pub trait Method: Function {
-    /// method name
-    fn name(&self) -> &String;
-
-    /// call a method on object
-    ///
-    /// # Arguments
-    /// * `obj`: object on which the method should be called
-    /// * `args`: a list of arguments to the ctor
-    ///
-    /// # Returns
-    /// * function value
-    fn call(&self, obj: &Box<dyn Any>, args: &[Box<dyn Any>]) -> Result<Box<dyn Any>, String>;
-
-    /// create a boxed clone of this struct
-    fn clone_boxed(&self) -> Box<dyn Method>;
-}
-
-
-///
-/// static function reflection information
-///
-pub trait Static: Function {
-    /// function name
-    fn name(&self) -> &String;
-
-    /// call a ctor
-    ///
-    /// # Arguments
-    /// * `name`: name of function
-    /// * `args`: a list of arguments to the ctor
-    ///
-    /// # Returns
-    /// * constructed instance
-    fn call(&self, name: &str, args: &[Box<dyn Any>]) -> Result<Box<dyn Any>, String>;
-
-    /// create a boxed clone of this struct
-    fn clone_boxed(&self) -> Box<dyn Static>;
-}
-
-
-//
-// Concrete types
-//
-
-///
 /// Information about a type
+/// - name of type (short name as string)
+/// - type id `TypeId`
+/// - list of constructors
+/// - list of methods
+/// - list of functions
+///
+/// In addition, there are methods to:
+/// - find type by name
+/// - create type given ctor arguments
+/// - call methods on type
+/// - call static functions on type
 ///
 pub struct TypeInfo {
     pub name: String,
     pub objtype: TypeId,
     pub constructors: Vec<Box<dyn Constructor>>,
     pub methods: Vec<Box<dyn Method>>,
-    pub functions: Vec<Box<dyn Static>>,
+    pub functions: Vec<Box<dyn StaticFunction>>,
 }
 
+
+/// Reflection interface to a type in the reflection system
+/// - find type by name
+/// - create type given ctor arguments
+/// - call methods on type
+/// - call static functions on type
 impl TypeInfo {
 
     /// Find type associated with name

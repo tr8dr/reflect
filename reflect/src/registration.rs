@@ -2,7 +2,8 @@
 use std::any::{TypeId};
 use std::any::type_name;
 
-use crate::types::{Constructor, Method, Static, TypeInfo};
+use crate::parts::{Constructor, Method, StaticFunction};
+use crate::types::TypeInfo;
 
 use lazy_static::lazy_static;
 use std::collections::HashMap;
@@ -92,7 +93,7 @@ pub fn register_method<T: 'static>(method: Box<dyn Method>) {
 ///
 /// # Arguments
 /// - `function`: function to be added
-pub fn register_function<T: 'static>(function: Box<dyn Static>) {
+pub fn register_function<T: 'static>(function: Box<dyn StaticFunction>) {
     let mut registry = TYPE_REGISTRY.lock().unwrap();
     let short_name = type_shortname::<T>();
 
