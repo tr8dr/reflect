@@ -1,23 +1,59 @@
 //! The reflect library provides the following facilities:
 //! - ability to register types for reflection
-//! - fuzzy conversion functions, allowing for fuzzy matches in terms of argument matching
+//! - ability to find and create types from a string-based type id
+//! - ability to call methods or static functions on a type via reflection
 //!
-//! The reflection macro finds ctors and method in an implementation of a type.  These
-//! methods are then recorded and available to the reflection mechanism for type instance
-//! creation and method invocation.
+//! In addition the crate also provides
+//! - parsing for constructor expressions
+//! - fuzzy type conversions in trying to match between an argument vector and a function
 //!
-//! Reflection allows for fuzzy matching for function arguments, where if, for example, a
-//! vector of f64 is required and instead a vector of i64 is provided, if this is the best
-//! fit method, before calling, the arguments will be transformed.
+//! # Registering a Type
+//! Adding a type for reflection is accomplished as:
+//! ```
+//!    //#[reflect_type]
+//!    impl Test1 {
+//!        fn new (a: i32) -> Self {
+//!            return Test1 { alpha: a };
+//!        }
+//!
+//!        fn f(&self, x: i32) -> i32 {
+//!            return x * self.alpha;
+//!        }
+//!    }
+//! ```
+//!
+//! # Finding and Creating a Type
+//! The `TypeInfo` struct has functions and method for reflecting a given type.  Finding
+//! a type is accomplished as:
+//! ```
+//!    let itype = TypeInfo::find_type(&"Test1").expect("could not find type");
+//! ```
+//! One of the type's ctors can be invoked by matching an argument list with the signature
+//! of one of the ctors.  The object instance is created as:
+//! ```
+//!    // create argv vector
+//!    let args_ctor = vec![Box::new(42i32) as Box<dyn Any>];
+//!    // find ctor and create obj
+//!    let obj = itype.create(&args_ctor).expect("failed to call ctor");
+//! ```
+//! # Calling methods on an object
+//! The `TypeInfo` struct has functions for calling methods and static functions.  A method is
+//! called as:
+//! ```
+//!    // create argv vector
+//!    let argv = vec![Box::new(3i32) as Box<dyn Any>];
+//!    // call "f" method
+//!    let result = TypeInfo::call (obj, "f", argv);
+//! ```
 //!
 
 
-mod types;
-mod registration;
-mod parts;
+mod core;
+mod parser;
 
-pub use parts::{Constructor, Method, StaticFunction, Function};
-pub use types::TypeInfo;
-pub use registration::{register_constructor, register_method, register_function, find_type};
+pub use core::{Constructor, Method, StaticFunction, Function};
+pub use core::TypeInfo;
+pub use core::{register_constructor, register_method, register_function, find_type};
+pub use parser::CTorParser;
 
 

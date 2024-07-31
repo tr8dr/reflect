@@ -2,8 +2,8 @@
 use std::any::{TypeId};
 use std::any::type_name;
 
-use crate::parts::{Constructor, Method, StaticFunction};
-use crate::types::TypeInfo;
+use crate::core::{Constructor, Method, StaticFunction};
+use crate::core::TypeInfo;
 
 use lazy_static::lazy_static;
 use std::collections::HashMap;

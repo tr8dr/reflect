@@ -1,0 +1,29 @@
+// This is a grammar for constructor expressions such as:
+// ```
+//   Resample(Momentum(SMA, [100,50,20], [0.2, 0.3, 0.,5]), 900)
+// ```
+//
+
+// Define the rules for your parser
+expression = { function_call }
+
+// Define a function call which can have multiple arguments
+function_call = { identifier ~ "(" ~ argument_list ~ ")" }
+
+// Define the list of arguments which can be any valid expression
+argument_list = { (expression ~ "," ~)* expression }
+
+// Define the identifier, which must start with a letter or underscore and be followed by alphanumeric characters or underscores
+identifier = @{ ASCII_ALPHABETIC ~ (ASCII_ALPHABETIC | "_" | DIGIT)* }
+
+// Define different types of arguments
+argument = { integer | float | array | identifier }
+
+// Define an integer
+integer = @{ "-"? ~ ASCII_DIGIT+ }
+
+// Define a float
+float = @{ "-"? ~ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ }
+
+// Define an array of integers or floats
+array = { "[" ~ (integer | float) ~ ("," ~ (integer | float))* ~ "]" }
