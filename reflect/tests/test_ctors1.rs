@@ -40,3 +40,28 @@ fn test_ctors1() {
     assert_eq!(obj.alpha, 3);
     assert_eq!(obj.beta, 3.1415926);
 }
+
+
+#[test]
+fn test_method1() {
+    let args_ctor = vec![
+        Box::new(3i32) as Box<dyn Any>,
+        Box::new(3.1415926f64) as Box<dyn Any>
+    ];
+    let args_fun = vec![
+        Box::new(4i32) as Box<dyn Any>
+    ];
+
+    let itype = TypeInfo::find_type(&String::from("Test1")).expect("could not find type");
+
+    // create object
+    let rawobj = itype.create(&args_ctor).expect("failed to call ctor");
+
+    // call function on object
+    let result = match itype.call(&rawobj, "f", &args_fun) {
+        Ok(v) => v.downcast::<i32>().unwrap(),
+        Err(e) => panic!("could not call function")
+    };
+
+    assert_eq!(*result, 12);
+}

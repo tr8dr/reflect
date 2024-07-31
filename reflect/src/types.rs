@@ -151,7 +151,7 @@ impl TypeInfo {
     ///
     /// # Returns
     /// - method result `Result<Box<dyn Any>, String>`)
-    pub fn call (&self, obj: &Box<dyn Any>, name: &String, args: &[Box<dyn Any>]) -> Result<Box<dyn Any>, String> {
+    pub fn call (&self, obj: &Box<dyn Any>, name: &str, args: &[Box<dyn Any>]) -> Result<Box<dyn Any>, String> {
         // find matching ctor (if any)
         let optmethod = self.methods.iter().find(|&method| {
            method.name() == name && method.matching(args)
