@@ -145,20 +145,23 @@ let input = parse_macro_input!(item as ItemImpl);
                             _arg_types: Vec<std::any::TypeId>
                         }
 
-                        /// implementation of Constructor trait for the given ctor
-                        impl ::reflect::Constructor for #ctor_name {
-                            fn create(&self, args: &[Box<dyn std::any::Any>]) -> Result<Box<dyn std::any::Any>, String> {
-                                #(#arg_conversions)*
-                                let result = #short_type_name::#method_name(#(#arg_names),*);
-                                #return_statement
-                            }
-
+                        /// implementation of Function trait for the given ctor
+                        impl ::reflect::Function for #ctor_name {
                             fn arg_types(&self) -> &[std::any::TypeId] {
                                 &self._arg_types
                             }
 
                             fn return_type(&self) -> std::any::TypeId {
                                 std::any::TypeId::of::<#return_type>()
+                            }
+                        }
+
+                        /// implementation of Constructor trait for the given ctor
+                        impl ::reflect::Constructor for #ctor_name {
+                            fn create(&self, args: &[Box<dyn std::any::Any>]) -> Result<Box<dyn std::any::Any>, String> {
+                                #(#arg_conversions)*
+                                let result = #short_type_name::#method_name(#(#arg_names),*);
+                                #return_statement
                             }
 
                             fn clone_boxed(&self) -> Box<dyn Constructor> {
@@ -189,6 +192,17 @@ let input = parse_macro_input!(item as ItemImpl);
                             _arg_types: Vec<std::any::TypeId>
                         }
 
+                        /// implementation of Function trait for the given method
+                        impl ::reflect::Function for #method_impl_name {
+                            fn arg_types(&self) -> &[std::any::TypeId] {
+                                &self._arg_types
+                            }
+
+                            fn return_type(&self) -> std::any::TypeId {
+                                std::any::TypeId::of::<#return_type>()
+                            }
+                        }
+
                         /// implementation of Method trait for the given method
                         impl ::reflect::Method for #method_impl_name {
                             fn call(&self, obj: &Box<dyn std::any::Any>, args: &[Box<dyn std::any::Any>]) -> Result<Box<dyn std::any::Any>, String> {
@@ -196,13 +210,6 @@ let input = parse_macro_input!(item as ItemImpl);
                                 let realobj = obj.downcast_ref::<#type_path>().expect("Failed to downcast to correct type");
                                 let result = realobj.#method_name(#(#arg_names),*);
                                 #return_statement
-                            }
-
-                            fn arg_types(&self) -> &[std::any::TypeId] {
-                                &self._arg_types
-                            }
-                            fn return_type(&self) -> std::any::TypeId {
-                                std::any::TypeId::of::<#return_type>()
                             }
 
                             fn name(&self) -> &String {
@@ -226,7 +233,56 @@ let input = parse_macro_input!(item as ItemImpl);
                 }
 
                 // temporarily do not implement static functions
-                FunctionType::Static => None
+                FunctionType::Static => {
+                    let fun_impl_name = format_ident!("{}Static", ident_camel_case(method_name));
+                    let register_ident = format_ident!("_REGISTER_{}", fun_impl_name);
+
+                    Some(quote! {
+                        /// specific Method type
+                        #[derive(Clone)]
+                        struct #fun_impl_name {
+                            _name: String,
+                            _arg_types: Vec<std::any::TypeId>
+                        }
+
+                        /// implementation of Function trait for the given method
+                        impl ::reflect::Function for #fun_impl_name {
+                            fn arg_types(&self) -> &[std::any::TypeId] {
+                                &self._arg_types
+                            }
+
+                            fn return_type(&self) -> std::any::TypeId {
+                                std::any::TypeId::of::<#return_type>()
+                            }
+                        }
+
+                        /// implementation of Method trait for the given method
+                        impl ::reflect::Method for #fun_impl_name {
+                            fn call(&self, args: &[Box<dyn std::any::Any>]) -> Result<Box<dyn std::any::Any>, String> {
+                                #(#arg_conversions)*
+                                let result = #short_type_name::#method_name(#(#arg_names),*);
+                                #return_statement
+                            }
+
+                            fn name(&self) -> &String {
+                                &self._name
+                            }
+
+                            fn clone_boxed(&self) -> Box<dyn Method> {
+                                Box::new(self.clone())
+                            }
+                        }
+
+                        /// auto-registration function
+                        #[ctor::ctor]
+                        fn #register_ident() {
+                            ::reflect::register_static::<#short_type_name>(Box::new(#fun_impl_name {
+                                _name: stringify!(#method_name).to_string(),
+                                _arg_types: vec![#(#arg_types),*]
+                            }));
+                        }
+                    })
+                }
             }
         } else {
             None

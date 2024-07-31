@@ -2,28 +2,15 @@
 use std::any::{Any, TypeId};
 use std::sync::Arc;
 
-
 ///
-/// Constructor reflection information
+/// Callable Function
 ///
-pub trait Constructor: Send + Sync {
-    /// call a ctor
-    ///
-    /// # Arguments
-    /// * `args`: a list of arguments to the ctor
-    ///
-    /// # Returns
-    /// * constructed instance
-    fn create(&self, args: &[Box<dyn Any>]) -> Result<Box<dyn Any>, String>;
-
+pub trait Function: Send + Sync {
     /// Return the argument signature
     fn arg_types(&self) -> &[TypeId];
 
     /// The object type associated with this call
     fn return_type(&self) -> TypeId;
-
-    /// create a boxed clone of this struct
-    fn clone_boxed(&self) -> Box<dyn Constructor>;
 
     /// Determine if arguments match this callable
     ///
@@ -43,13 +30,32 @@ pub trait Constructor: Send + Sync {
             actual_type == *expected_type
         })
     }
+
 }
 
 
 ///
 /// Constructor reflection information
 ///
-pub trait Method: Send + Sync {
+pub trait Constructor: Function {
+    /// call a ctor
+    ///
+    /// # Arguments
+    /// * `args`: a list of arguments to the ctor
+    ///
+    /// # Returns
+    /// * constructed instance
+    fn create(&self, args: &[Box<dyn Any>]) -> Result<Box<dyn Any>, String>;
+
+    /// create a boxed clone of this struct
+    fn clone_boxed(&self) -> Box<dyn Constructor>;
+}
+
+
+///
+/// Constructor reflection information
+///
+pub trait Method: Function {
     /// method name
     fn name(&self) -> &String;
 
@@ -63,34 +69,32 @@ pub trait Method: Send + Sync {
     /// * function value
     fn call(&self, obj: &Box<dyn Any>, args: &[Box<dyn Any>]) -> Result<Box<dyn Any>, String>;
 
-    /// Return the argument signature
-    fn arg_types(&self) -> &[TypeId];
-
-    /// The object type associated with this call
-    fn return_type(&self) -> TypeId;
-
     /// create a boxed clone of this struct
     fn clone_boxed(&self) -> Box<dyn Method>;
+}
 
-    /// Determine if arguments match this callable
+
+///
+/// static function reflection information
+///
+pub trait Static: Function {
+    /// function name
+    fn name(&self) -> &String;
+
+    /// call a ctor
     ///
     /// # Arguments
-    /// - `args`: array of arguments
-    fn matching(&self, args: &[Box<dyn Any>]) -> bool {
-        let arg_types = self.arg_types();
+    /// * `name`: name of function
+    /// * `args`: a list of arguments to the ctor
+    ///
+    /// # Returns
+    /// * constructed instance
+    fn call(&self, name: &str, args: &[Box<dyn Any>]) -> Result<Box<dyn Any>, String>;
 
-        // Check arity (does the number of arguments match?)
-        if arg_types.len() != args.len() {
-            return false;
-        }
-
-        // Check if each argument type matches
-        arg_types.iter().zip(args.iter()).all(|(expected_type, arg)| {
-            let actual_type = (**arg).type_id();
-            actual_type == *expected_type
-        })
-    }
+    /// create a boxed clone of this struct
+    fn clone_boxed(&self) -> Box<dyn Static>;
 }
+
 
 //
 // Concrete types
@@ -104,6 +108,7 @@ pub struct TypeInfo {
     pub objtype: TypeId,
     pub constructors: Vec<Box<dyn Constructor>>,
     pub methods: Vec<Box<dyn Method>>,
+    pub functions: Vec<Box<dyn Static>>,
 }
 
 impl TypeInfo {
@@ -168,6 +173,31 @@ impl TypeInfo {
         }
     }
 
+    /// Call method by name
+    ///
+    /// # Arguments
+    /// - `name`: method name
+    /// - `args`: arguments to ctor
+    ///
+    /// # Returns
+    /// - method result `Result<Box<dyn Any>, String>`)
+    pub fn callstatic (&self, name: &str, args: &[Box<dyn Any>]) -> Result<Box<dyn Any>, String> {
+        // find matching ctor (if any)
+        let optfun = self.functions.iter().find(|&fun| {
+           fun.name() == name && fun.matching(args)
+        });
+
+        // check whether we found a ctor, then call
+        match optfun {
+            Some(&ref fun) => {
+                fun.call(name, args)
+            }
+            None => {
+                return Err(format!("could not find function: '{}' for {} arguments", name, args.len()));
+            }
+        }
+    }
+
 }
 
 
@@ -179,6 +209,7 @@ impl Clone for TypeInfo {
             objtype: self.objtype,
             constructors: self.constructors.iter().map(|c| c.clone_boxed()).collect(),
             methods: self.methods.iter().map(|m| (m.clone_boxed())).collect(),
+            functions: self.functions.iter().map(|m| (m.clone_boxed())).collect(),
         }
     }
 }

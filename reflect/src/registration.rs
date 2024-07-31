@@ -2,7 +2,7 @@
 use std::any::{TypeId};
 use std::any::type_name;
 
-use crate::types::{Constructor, Method, TypeInfo};
+use crate::types::{Constructor, Method, Static, TypeInfo};
 
 use lazy_static::lazy_static;
 use std::collections::HashMap;
@@ -58,6 +58,7 @@ pub fn register_constructor<T: 'static>(constructor: Box<dyn Constructor>) {
             objtype: TypeId::of::<T>(),
             constructors: Vec::new(),
             methods: Vec::new(),
+            functions: Vec::new()
         })
     });
 
@@ -79,9 +80,32 @@ pub fn register_method<T: 'static>(method: Box<dyn Method>) {
             objtype: TypeId::of::<T>(),
             constructors: Vec::new(),
             methods: Vec::new(),
+            functions: Vec::new()
         })
     });
 
     Arc::make_mut(type_info).methods.push(method);
 }
 
+
+/// Register a static function for a given type
+///
+/// # Arguments
+/// - `function`: function to be added
+pub fn register_function<T: 'static>(function: Box<dyn Static>) {
+    let mut registry = TYPE_REGISTRY.lock().unwrap();
+    let short_name = type_shortname::<T>();
+
+    // get type associated with this ctor (or create type entry)
+    let type_info = registry.entry(short_name.clone()).or_insert_with(|| {
+        Arc::new(TypeInfo {
+            name: short_name,
+            objtype: TypeId::of::<T>(),
+            constructors: Vec::new(),
+            methods: Vec::new(),
+            functions: Vec::new()
+        })
+    });
+
+    Arc::make_mut(type_info).functions.push(function);
+}

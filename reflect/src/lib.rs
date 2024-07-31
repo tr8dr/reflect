@@ -14,9 +14,8 @@
 
 mod types;
 mod registration;
-mod utilities;
 
-pub use types::{Constructor, Method, TypeInfo};
-pub use registration::{register_constructor, register_method, find_type};
+pub use types::{Constructor, Method, Function, TypeInfo};
+pub use registration::{register_constructor, register_method, register_function, find_type};
 
 
