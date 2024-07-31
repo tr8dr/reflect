@@ -39,10 +39,12 @@ pub trait Constructor: Send + Sync {
 
         // Check if each argument type matches
         arg_types.iter().zip(args.iter()).all(|(expected_type, arg)| {
-            arg.type_id() == *expected_type
+            let actual_type = (**arg).type_id();
+            actual_type == *expected_type
         })
     }
 }
+
 
 ///
 /// Constructor reflection information
@@ -84,7 +86,8 @@ pub trait Method: Send + Sync {
 
         // Check if each argument type matches
         arg_types.iter().zip(args.iter()).all(|(expected_type, arg)| {
-            arg.type_id() == *expected_type
+            let actual_type = (**arg).type_id();
+            actual_type == *expected_type
         })
     }
 }

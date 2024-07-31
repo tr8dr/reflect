@@ -14,7 +14,6 @@
 use proc_macro::TokenStream;
 use quote::{quote, format_ident, ToTokens};
 use syn::{parse_macro_input, ItemImpl, ImplItem, ImplItemMethod, ReturnType, Type, TypePath, FnArg, Pat};
-use proc_macro2::TokenStream as TokenStream2;
 
 
 /// Types of functions we may encounter in a type
@@ -243,22 +242,6 @@ let input = parse_macro_input!(item as ItemImpl);
 }
 
 
-
-/// Determine if is ctor based on:
-/// - return type is self
-fn is_constructor(method: &ImplItemMethod) -> bool {
-    fn is_self_type(rtype: &Type) -> bool {
-        if let Type::Path(type_path) = rtype {
-            if let Some(segment) = type_path.path.segments.last() {
-                return segment.ident == "Self";
-            }
-        }
-        false
-    }
-
-    // Check if the return type is Self
-    matches!(method.sig.output, ReturnType::Type(_, ref ty) if is_self_type(ty))
-}
 
 /// Convert to camel-case
 fn to_camel_case(s: &str) -> String {

@@ -8,7 +8,7 @@ use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::sync::Mutex;
 use std::sync::Arc;
-use once_cell::sync::Lazy;
+
 
 //
 // Repository of reflected types
@@ -35,7 +35,7 @@ pub fn type_shortname<T: 'static>() -> String {
 /// - `Some(typeinfo)` OR
 /// - `None`
 pub fn find_type(name: &str) -> Option<Arc<TypeInfo>> {
-    let mut registry = TYPE_REGISTRY.lock().unwrap();
+    let registry = TYPE_REGISTRY.lock().unwrap();
     match registry.get(name) {
         Some(info) => Some(info.clone()),
         None => None
