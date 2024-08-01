@@ -92,7 +92,7 @@ fn test_method2() {
     // call function on object
     let result = match itype.call(&rawobj, "g", &args_fun) {
         Ok(v) => v.downcast::<f64>().unwrap(),
-        Err(_) => panic!("could not call function")
+        Err(e) => panic!("{}", e)
     };
 
     assert_eq!(*result, 12.4);

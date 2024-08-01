@@ -1,5 +1,6 @@
 
 use std::any::{Any, TypeId};
+use crate::Conversions;
 
 
 ///
@@ -28,9 +29,18 @@ pub trait Function: Send + Sync {
         }
 
         // Check if each argument type matches
-        arg_types.iter().zip(args.iter()).all(|(expected_type, arg)| {
-            let actual_type = (**arg).type_id();
-            actual_type == *expected_type
+        arg_types.iter().zip(args.iter()).all(|(param_type, arg)| {
+            // check if trivially convertible
+            let arg_type = (**arg).type_id();
+            if arg_type == *param_type {
+                return true;
+            }
+
+            // check if equivalent (for example Vec<T> vs &[T])
+            match Conversions::find(arg_type, *param_type) {
+                Some(cv) => cv.is_equivalent(),
+                None => false
+            }
         })
     }
 

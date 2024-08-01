@@ -33,28 +33,36 @@ lazy_static! {
             let tf64 = TypeId::of::<f64>();
             let tstr = TypeId::of::<String>();
 
+            let vi32 = TypeId::of::<Vec<i32>>();
+            let vi64 = TypeId::of::<Vec<i64>>();
+            let vf64 = TypeId::of::<Vec<f64>>();
+
+            let si32 = TypeId::of::<&[i32]>();
+            let si64 = TypeId::of::<&[i64]>();
+            let sf64 = TypeId::of::<&[f64]>();
+
             // i32 conversions
             add (ti32, ti32, 200,
                 |x| { to::<i32,i32>(x) } );
-            add (ti32, ti64, 150,
+            add (ti32, ti64, 100,
                 |x| { to::<i32,i64>(x) });
-            add (ti32, tu32, 200,
+            add (ti32, tu32, 150,
                 |x| { to::<i32,u32>(x) });
-            add (ti32, tu64, 150,
+            add (ti32, tu64, 100,
                 |x| { to::<i32,u64>(x) });
-            add (ti32, tf64, 200,
+            add (ti32, tf64, 150,
                 |x| { to::<i32,f64>(x) });
 
             // u32 conversions
             add (tu32, tu32, 200,
                 |x| { to::<u32,u32>(x) });
-            add (tu32, ti32, 200,
+            add (tu32, ti32, 150,
                 |x| { to::<u32,i32>(x) });
-            add (tu32, ti64, 200,
+            add (tu32, ti64, 150,
                 |x| { to::<u32,i64>(x) });
-            add (tu32, tu64, 200,
+            add (tu32, tu64, 150,
                 |x| { to::<u32,u64>(x) });
-            add (tu32, tf64, 200,
+            add (tu32, tf64, 150,
                 |x| { to::<u32,f64>(x) });
 
             // i64 conversions
@@ -76,7 +84,7 @@ lazy_static! {
                 |x| { to::<u64,i32>(x) });
             add (tu64, tu32, 100,
                 |x| { to::<u64,u32>(x) });
-            add (tu64, ti64, 200,
+            add (tu64, ti64, 150,
                 |x| { to::<u64,i64>(x) });
             add (tu64, tf64, 100,
                 |x| { Some(Box::new(raw::<u64>(x) as f64) as Box<dyn Any>) });
@@ -106,6 +114,14 @@ lazy_static! {
                 |x| { try_parse::<u64>(x) });
             add (tstr, tf64, 50,
                 |x| { try_parse::<f64>(x) });
+
+            // vector connversions
+            add (vi32, si32, 200,
+                |x| { Some(x.clone() as Box<dyn Any>) });
+            add (vi64, si64, 200,
+                |x| { Some(x.clone() as Box<dyn Any>) });
+            add (vf64, sf64, 200,
+                |x| { Some(x.clone() as Box<dyn Any>) });
         }
         rawmap
     };
@@ -125,6 +141,13 @@ pub struct Conversions {
 }
 
 impl Conversions {
+    const Equivalent: i32 = 200;
+
+    /// Indicate whether this conversion pairing is T -> T or equivalent
+    pub fn is_equivalent (&self) -> bool {
+        self.score == Self::Equivalent
+    }
+
     /// Add a type conversion
     /// - note that we require a score so can rank possible alternative conversions; A
     ///   score of 200 would mean that has full conversion weight and a lower score
