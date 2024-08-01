@@ -53,6 +53,7 @@ mod parser;
 
 pub use core::{Constructor, Method, StaticFunction, Function};
 pub use core::TypeInfo;
+pub use core::Conversions;
 pub use core::{register_constructor, register_method, register_function, find_type};
 pub use parser::CTorParser;
 

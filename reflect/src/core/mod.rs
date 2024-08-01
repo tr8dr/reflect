@@ -13,4 +13,5 @@ mod conversions;
 
 pub use parts::{Constructor, Method, StaticFunction, Function};
 pub use types::TypeInfo;
+pub use conversions::Conversions;
 pub use registration::{register_constructor, register_method, register_function, find_type};
