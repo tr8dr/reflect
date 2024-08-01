@@ -37,9 +37,11 @@ enum FunctionType {
 /// ```
 ///
 /// This will generate:
+/// - an implementation of Function as the base trait
 /// - an implementation of Constructor for each ctor
 /// - an implementation of Method for each method
-/// - registration for each ctor and method
+/// - an implementation of StaticFunction for each type level function
+/// - registration for each ctor, method, static function
 /// - registration for the overall type
 ///
 /// Given the above registration can then:
@@ -234,7 +236,7 @@ let input = parse_macro_input!(item as ItemImpl);
                     })
                 }
 
-                // temporarily do not implement static functions
+                // Static functions
                 FunctionType::Static => {
                     let fun_impl_name = format_ident!("{}Static", ident_camel_case(method_name));
                     let register_ident = format_ident!("_REGISTER_{}", fun_impl_name);
@@ -300,7 +302,22 @@ let input = parse_macro_input!(item as ItemImpl);
 }
 
 
-// Handle argument dereferencing dependent on type
+/// Handle argument dereferencing dependent on type
+///
+/// # How this works
+/// - creates a `let varname = deferenced value from args[i]`, for each argument
+/// - this will later be placed in the body of the call function, so that the underlying
+///   method can be dispatched
+///
+/// # Some ugliness
+/// - some arguments will come in as `Vec<T>` whereas the receiving function will
+///   usually take a slice: `&[T]`.  In this scenario, there is code to determine if the
+///   target function parameter is a slice `&[T]` and if the incoming value is a `Vec[t]`
+///   will get a slice on the `Vec[T]` argument
+///
+/// - aside from slices, there are references, primitive types, and struct based types.  There
+///   may be some special handling for each in properly dereferencing
+///
 fn generate_arg_conversion(i: usize, name: &Ident, parameter_type: &Type) -> proc_macro2::TokenStream {
     match parameter_type {
         Type::Reference(TypeReference { elem, .. }) => {
