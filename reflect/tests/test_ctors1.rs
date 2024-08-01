@@ -21,6 +21,14 @@ impl Test1 {
     fn f(&self, x: i32) -> i32 {
         return x * self.alpha;
     }
+
+    fn g(&self, vec: &[f64]) -> f64 {
+        let mut cum = 0.0;
+        for v in vec {
+            cum += *v;
+        }
+        cum
+    }
 }
 
 

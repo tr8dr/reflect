@@ -8,7 +8,7 @@ use lazy_static::lazy_static;
 use std::collections::HashMap;
 use std::sync::{RwLock,Arc};
 use std::any::Any;
-
+use std::str::FromStr;
 
 // Conversion function type
 type ConversionFn = fn(&Box<dyn Any>) -> Option<Box<dyn Any>>;
@@ -30,9 +30,7 @@ lazy_static! {
             let tu32 = TypeId::of::<u32>();
             let ti64 = TypeId::of::<i64>();
             let tu64 = TypeId::of::<u64>();
-
             let tf64 = TypeId::of::<f64>();
-
             let tstr = TypeId::of::<String>();
 
             // i32 conversions
@@ -82,6 +80,32 @@ lazy_static! {
                 |x| { to::<u64,i64>(x) });
             add (tu64, tf64, 100,
                 |x| { Some(Box::new(raw::<u64>(x) as f64) as Box<dyn Any>) });
+
+            // f64 conversions
+            add (tf64, tf64, 200,
+                |x| { to::<f64,f64>(x) });
+            add (tf64, ti32, 150,
+                |x| { Some(Box::new(raw::<f64>(x).round() as i32) as Box<dyn Any>) });
+            add (tf64, tu32, 100,
+                |x| { Some(Box::new(raw::<f64>(x).round() as u32) as Box<dyn Any>) });
+            add (tf64, tu64, 150,
+                |x| { Some(Box::new(raw::<f64>(x).round() as u64) as Box<dyn Any>) });
+            add (tf64, ti64, 150,
+                |x| { Some(Box::new(raw::<f64>(x).round() as i64) as Box<dyn Any>) });
+
+            // string conversions
+            add (tstr, tstr, 200,
+                |x| { Some(Box::new(raw::<&String>(x)) as Box<dyn Any>) });
+            add (tstr, ti32, 50,
+                |x| { try_parse::<i32>(x) });
+            add (tstr, tu32, 50,
+                |x| { try_parse::<u32>(x) });
+            add (tstr, ti64, 50,
+                |x| { try_parse::<i64>(x) });
+            add (tstr, tu64, 50,
+                |x| { try_parse::<u64>(x) });
+            add (tstr, tf64, 50,
+                |x| { try_parse::<f64>(x) });
         }
         rawmap
     };
@@ -239,4 +263,13 @@ fn to<T: 'static,R: 'static> (v: &Box<dyn Any>) -> Option<Box<dyn Any>>  where T
 // Get raw underlying value
 fn raw<T: 'static> (v: &Box<dyn Any>) -> T  where T: Copy {
     *v.downcast_ref::<T>().unwrap()
+}
+
+// Parse a string to a primitive type
+fn try_parse<T: 'static + Copy + FromStr> (v: &Box<dyn Any>) -> Option<Box<dyn Any>> {
+    let raw: &String = *v.downcast_ref::<&String>().unwrap();
+    match (*raw).parse::<T>() {
+        Ok(v) => Some(Box::new(v) as Box<dyn Any>),
+        Err(_) => None
+    }
 }
