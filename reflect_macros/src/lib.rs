@@ -13,7 +13,7 @@
 
 use proc_macro::TokenStream;
 use quote::{quote, format_ident, ToTokens};
-use syn::{parse_macro_input, ItemImpl, ImplItem, ReturnType, Type, TypePath, FnArg, Pat};
+use syn::{parse_macro_input, ItemImpl, ImplItem, ReturnType, TypeReference, Ident, Type, TypePath, FnArg, Pat};
 
 
 /// Types of functions we may encounter in a type
@@ -113,11 +113,9 @@ let input = parse_macro_input!(item as ItemImpl);
                 } else { None })
                 .collect::<Vec<_>>();
 
-            let arg_conversions = args.iter().enumerate().map(|(i, (name, ty))| quote! {
-                let #name = match args.get(#i).and_then(|arg| arg.downcast_ref::<#ty>()) {
-                    Some(value) => *value,
-                    None => return Err(format!("Invalid argument type for parameter {}", #i)),
-                };
+            // generate `name = arg[i]` code
+            let arg_conversions = args.iter().enumerate().map(|(i, (name, parameter_type))| {
+                generate_arg_conversion(i, name, parameter_type)
             }).collect::<Vec<_>>();
 
             // names of arguments
@@ -293,7 +291,7 @@ let input = parse_macro_input!(item as ItemImpl);
         }
     }).collect::<Vec<_>>();
 
-    //eprintln!("first: {:?}", registrations.last().unwrap().to_string());
+    eprintln!("last: {:?}", registrations.last().unwrap().to_string());
 
     quote! {
         #input
@@ -301,6 +299,73 @@ let input = parse_macro_input!(item as ItemImpl);
     }.into()
 }
 
+
+// Handle argument dereferencing dependent on type
+fn generate_arg_conversion(i: usize, name: &Ident, parameter_type: &Type) -> proc_macro2::TokenStream {
+    match parameter_type {
+        Type::Reference(TypeReference { elem, .. }) => {
+            if let Type::Slice(_) = &**elem {
+                // Handle &[T]
+                quote! {
+                    let #name = match args.get(#i) {
+                        Some(arg) => {
+                            if let Some(vec) = arg.downcast_ref::<Vec<_>>() {
+                                vec.as_slice()
+                            } else if let Some(slice) = arg.downcast_ref::<#parameter_type>() {
+                                *slice
+                            } else {
+                                return Err(format!("Invalid argument type for parameter {}", #i));
+                            }
+                        },
+                        None => return Err(format!("Missing argument for parameter {}", #i)),
+                    };
+                }
+            } else {
+                // Handle other reference types
+                quote! {
+                    let #name = match args.get(#i).and_then(|arg| arg.downcast_ref::<#parameter_type>()) {
+                        Some(value) => *value,
+                        None => return Err(format!("Invalid argument type for parameter {}", #i)),
+                    };
+                }
+            }
+        },
+        Type::Path(TypePath { path, .. }) => {
+            if path.segments.last().map_or(false, |seg| seg.ident == "Vec") {
+                // Handle Vec<T>
+                quote! {
+                    let #name = match args.get(#i) {
+                        Some(arg) => {
+                            if let Some(vec) = arg.downcast_ref::<#parameter_type>() {
+                                vec.clone()
+                            } else {
+                                return Err(format!("Invalid argument type for parameter {}", #i));
+                            }
+                        },
+                        None => return Err(format!("Missing argument for parameter {}", #i)),
+                    };
+                }
+            } else {
+                // Handle primitive types
+                quote! {
+                    let #name = match args.get(#i).and_then(|arg| arg.downcast_ref::<#parameter_type>()) {
+                        Some(value) => *value,
+                        None => return Err(format!("Invalid argument type for parameter {}", #i)),
+                    };
+                }
+            }
+        },
+        _ => {
+            // Handle other types
+            quote! {
+                let #name = match args.get(#i).and_then(|arg| arg.downcast_ref::<#parameter_type>()) {
+                    Some(value) => value.clone(),
+                    None => return Err(format!("Invalid argument type for parameter {}", #i)),
+                };
+            }
+        }
+    }
+}
 
 
 /// Convert to camel-case

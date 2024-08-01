@@ -73,3 +73,27 @@ fn test_method1() {
 
     assert_eq!(*result, 12);
 }
+
+
+#[test]
+fn test_method2() {
+    let args_ctor = vec![
+        Box::new(3i32) as Box<dyn Any>,
+    ];
+    let args_fun = vec![
+        Box::new(vec![3.1, 4.2, 5.1]) as Box<dyn Any>
+    ];
+
+    let itype = TypeInfo::find_type(&String::from("Test1")).expect("could not find type");
+
+    // create object
+    let rawobj = itype.create(&args_ctor).expect("failed to call ctor");
+
+    // call function on object
+    let result = match itype.call(&rawobj, "g", &args_fun) {
+        Ok(v) => v.downcast::<f64>().unwrap(),
+        Err(_) => panic!("could not call function")
+    };
+
+    assert_eq!(*result, 12.4);
+}
