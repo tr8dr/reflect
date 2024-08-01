@@ -1,11 +1,14 @@
 
 use std::any::{Any, TypeId};
-use std::sync::Arc;
+
 
 ///
 /// Callable Function
 ///
 pub trait Function: Send + Sync {
+    /// method / function name (or "*" if ctor)
+    fn name(&self) -> &str;
+
     /// Return the argument signature
     fn arg_types(&self) -> &[TypeId];
 
@@ -56,8 +59,6 @@ pub trait Constructor: Function {
 /// Constructor reflection information
 ///
 pub trait Method: Function {
-    /// method name
-    fn name(&self) -> &String;
 
     /// call a method on object
     ///
@@ -78,8 +79,6 @@ pub trait Method: Function {
 /// static function reflection information
 ///
 pub trait StaticFunction: Function {
-    /// function name
-    fn name(&self) -> &String;
 
     /// call a ctor
     ///

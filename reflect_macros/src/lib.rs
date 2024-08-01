@@ -13,7 +13,7 @@
 
 use proc_macro::TokenStream;
 use quote::{quote, format_ident, ToTokens};
-use syn::{parse_macro_input, ItemImpl, ImplItem, ImplItemMethod, ReturnType, Type, TypePath, FnArg, Pat};
+use syn::{parse_macro_input, ItemImpl, ImplItem, ReturnType, Type, TypePath, FnArg, Pat};
 
 
 /// Types of functions we may encounter in a type
@@ -147,6 +147,10 @@ let input = parse_macro_input!(item as ItemImpl);
 
                         /// implementation of Function trait for the given ctor
                         impl ::reflect::Function for #ctor_name {
+                            fn name(&self) -> &str {
+                                &"*"
+                            }
+
                             fn arg_types(&self) -> &[std::any::TypeId] {
                                 &self._arg_types
                             }
@@ -194,6 +198,10 @@ let input = parse_macro_input!(item as ItemImpl);
 
                         /// implementation of Function trait for the given method
                         impl ::reflect::Function for #method_impl_name {
+                            fn name(&self) -> &str {
+                                &self._name
+                            }
+
                             fn arg_types(&self) -> &[std::any::TypeId] {
                                 &self._arg_types
                             }
@@ -210,10 +218,6 @@ let input = parse_macro_input!(item as ItemImpl);
                                 let realobj = obj.downcast_ref::<#type_path>().expect("Failed to downcast to correct type");
                                 let result = realobj.#method_name(#(#arg_names),*);
                                 #return_statement
-                            }
-
-                            fn name(&self) -> &String {
-                                &self._name
                             }
 
                             fn clone_boxed(&self) -> Box<dyn Method> {
@@ -247,6 +251,10 @@ let input = parse_macro_input!(item as ItemImpl);
 
                         /// implementation of Function trait for the given method
                         impl ::reflect::Function for #fun_impl_name {
+                            fn name(&self) -> &str {
+                                &self._name
+                            }
+
                             fn arg_types(&self) -> &[std::any::TypeId] {
                                 &self._arg_types
                             }
@@ -262,10 +270,6 @@ let input = parse_macro_input!(item as ItemImpl);
                                 #(#arg_conversions)*
                                 let result = #short_type_name::#method_name(#(#arg_names),*);
                                 #return_statement
-                            }
-
-                            fn name(&self) -> &String {
-                                &self._name
                             }
 
                             fn clone_boxed(&self) -> Box<dyn Method> {

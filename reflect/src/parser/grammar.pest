@@ -4,26 +4,17 @@
 // ```
 //
 
-// Define the rules for your parser
-expression = { function_call }
+WHITESPACE = _{ " " | "\t" | "\n" | "\r" }
 
-// Define a function call which can have multiple arguments
-function_call = { identifier ~ "(" ~ argument_list ~ ")" }
+integer = @{ ASCII_DIGIT+ }
+float = @{ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT* ~ (^"e" ~ ASCII_DIGIT+)? }
+identifier = @{ ASCII_ALPHA ~ (ASCII_ALPHANUMERIC | "_")* }
 
-// Define the list of arguments which can be any valid expression
-argument_list = { (expression ~ "," ~)* expression }
+primitive = _{ float | integer | identifier }
+list = { "[" ~ primitive ~ ("," ~ primitive)* ~ "]" }
 
-// Define the identifier, which must start with a letter or underscore and be followed by alphanumeric characters or underscores
-identifier = @{ ASCII_ALPHABETIC ~ (ASCII_ALPHABETIC | "_" | DIGIT)* }
+ctor_expression = { identifier ~ "(" ~ argument_list ~ ")" }
+argument = _{ ctor_expression | list | primitive }
+argument_list = _{ argument ~ ("," ~ argument)* }
 
-// Define different types of arguments
-argument = { integer | float | array | identifier }
-
-// Define an integer
-integer = @{ "-"? ~ ASCII_DIGIT+ }
-
-// Define a float
-float = @{ "-"? ~ ASCII_DIGIT+ ~ "." ~ ASCII_DIGIT+ }
-
-// Define an array of integers or floats
-array = { "[" ~ (integer | float) ~ ("," ~ (integer | float))* ~ "]" }
+expression = _{ SOI ~ (ctor_expression | primitive) ~ EOI }

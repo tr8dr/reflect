@@ -9,6 +9,7 @@
 mod types;
 mod registration;
 mod parts;
+mod conversions;
 
 pub use parts::{Constructor, Method, StaticFunction, Function};
 pub use types::TypeInfo;
