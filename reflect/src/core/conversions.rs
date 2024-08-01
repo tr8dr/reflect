@@ -42,7 +42,7 @@ lazy_static! {
             let sf64 = TypeId::of::<&[f64]>();
 
             // i32 conversions
-            add (ti32, ti32, 200,
+            add (ti32, ti32, Conversions::EQUIVALENT,
                 |x| { to::<i32,i32>(x) } );
             add (ti32, ti64, 100,
                 |x| { to::<i32,i64>(x) });
@@ -54,7 +54,7 @@ lazy_static! {
                 |x| { to::<i32,f64>(x) });
 
             // u32 conversions
-            add (tu32, tu32, 200,
+            add (tu32, tu32, Conversions::EQUIVALENT,
                 |x| { to::<u32,u32>(x) });
             add (tu32, ti32, 150,
                 |x| { to::<u32,i32>(x) });
@@ -66,7 +66,7 @@ lazy_static! {
                 |x| { to::<u32,f64>(x) });
 
             // i64 conversions
-            add (ti64, ti64, 200,
+            add (ti64, ti64, Conversions::EQUIVALENT,
                 |x| { to::<i64,i64>(x) });
             add (ti64, ti32, 100,
                 |x| { to::<i64,i32>(x) });
@@ -78,7 +78,7 @@ lazy_static! {
                 |x| { to::<i64,i32>(x) });
 
             // u64 conversions
-            add (tu64, tu64, 200,
+            add (tu64, tu64, Conversions::EQUIVALENT,
                 |x| { to::<u64,u64>(x) });
             add (tu64, ti32, 100,
                 |x| { to::<u64,i32>(x) });
@@ -90,7 +90,7 @@ lazy_static! {
                 |x| { Some(Box::new(raw::<u64>(x) as f64) as Box<dyn Any>) });
 
             // f64 conversions
-            add (tf64, tf64, 200,
+            add (tf64, tf64, Conversions::EQUIVALENT,
                 |x| { to::<f64,f64>(x) });
             add (tf64, ti32, 150,
                 |x| { Some(Box::new(raw::<f64>(x).round() as i32) as Box<dyn Any>) });
@@ -102,7 +102,7 @@ lazy_static! {
                 |x| { Some(Box::new(raw::<f64>(x).round() as i64) as Box<dyn Any>) });
 
             // string conversions
-            add (tstr, tstr, 200,
+            add (tstr, tstr, Conversions::EQUIVALENT,
                 |x| { Some(Box::new(raw::<&String>(x)) as Box<dyn Any>) });
             add (tstr, ti32, 50,
                 |x| { try_parse::<i32>(x) });
@@ -115,13 +115,15 @@ lazy_static! {
             add (tstr, tf64, 50,
                 |x| { try_parse::<f64>(x) });
 
-            // vector connversions
-            add (vi32, si32, 200,
-                |x| { Some(x.clone() as Box<dyn Any>) });
-            add (vi64, si64, 200,
-                |x| { Some(x.clone() as Box<dyn Any>) });
-            add (vf64, sf64, 200,
-                |x| { Some(x.clone() as Box<dyn Any>) });
+            // vector conversions
+            add (vi32, si32, Conversions::EQUIVALENT,
+                |x| { convert_vec::<i32,i32>(x) });
+            add (vi32, sf64, Conversions::EQUIVALENT,
+                |x| { convert_vec::<i32,f64>(x) });
+            add (vi64, si64, Conversions::EQUIVALENT,
+                |x| { convert_vec::<i64,i64>(x) });
+            add (vf64, sf64, Conversions::EQUIVALENT,
+                |x| { convert_vec::<f64,f64>(x) });
         }
         rawmap
     };
@@ -141,11 +143,11 @@ pub struct Conversions {
 }
 
 impl Conversions {
-    const Equivalent: i32 = 200;
+    const EQUIVALENT: i32 = 200;
 
     /// Indicate whether this conversion pairing is T -> T or equivalent
     pub fn is_equivalent (&self) -> bool {
-        self.score == Self::Equivalent
+        self.score == Conversions::EQUIVALENT
     }
 
     /// Add a type conversion
@@ -272,6 +274,21 @@ impl Conversions {
 // Special conversions
 //
 
+
+// Copy vector from type T to type R
+fn convert_vec<T, R>(boxed: &Box<dyn Any>) -> Option<Box<dyn Any>>
+where
+    T: 'static + Clone,
+    R: 'static + TryFrom<T>,
+    <R as TryFrom<T>>::Error: std::fmt::Debug,
+{
+    boxed.downcast_ref::<Vec<T>>().map(|vec| {
+        let converted: Vec<R> = vec.iter()
+            .filter_map(|item| R::try_from(item.clone()).ok())
+            .collect();
+        Box::new(converted) as Box<dyn Any>
+    })
+}
 
 // Conversion for boxed primitive types to another type
 fn to<T: 'static,R: 'static> (v: &Box<dyn Any>) -> Option<Box<dyn Any>>  where T: Copy, R: TryFrom<T> {
