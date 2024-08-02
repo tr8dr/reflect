@@ -14,6 +14,8 @@ The common use cases for this library are:
 - **foreign interfaces**
   * creating rust types and calling methods from Python or other foreign interfaces
 
+## Status
+This is a functional work in progress, but should be feature completed for v0.1.0 within a couple of weeks.
  
 ## Example
 Here is an example type `Momentum` and an enum `MAType` that are to be reflected:
