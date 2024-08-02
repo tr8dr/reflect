@@ -88,12 +88,14 @@ In practice it would be pointless to evaluate as above.  More often the use case
 evaluation of a `Box<dyn Trait>` where the underlying specific type and instance was created with a ctor expression.
 
 # Roadmap
-The following planned for future releases:
+The following is work in progress for a v0.1.0:
 
-- [x] Type reflection
+- [x] (impl) Type reflection
 - [x] Enum reflection
 - [x] Type conversion and equivalence
+- [ ] impl Trait for Type reflection (*high priority*)
 - [ ] ctor parser (*work in progress*)
-- [ ] navigating trait extensions (if possible)
+   
+For future releases:
 - [ ] handling of function signatures with Arc, Rc, and other type wrappers
 - [ ] performance
