@@ -54,7 +54,7 @@ use reflect::CTorParser;
 
 // get ctor expression from some config source for example
 let ctor_expr1 = config[&"signal/ctor"].to_string();
-// inlined ctor here
+// or inlined ctor here
 let ctor_expr2 = "Momentum(SMA, [200,50,20], [0.20,0.30,0.50])";
 
 // get the corresponding object
