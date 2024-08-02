@@ -93,7 +93,7 @@ The following planned for future releases:
 - [x] Type reflection
 - [x] Enum reflection
 - [x] Type conversion and equivalence
-- [*] ctor parser (*work in progress*)
+- [ ] ctor parser (*work in progress*)
 - [ ] navigating trait extensions (if possible)
 - [ ] handling of function signatures with Arc, Rc, and other type wrappers
 - [ ] performance
