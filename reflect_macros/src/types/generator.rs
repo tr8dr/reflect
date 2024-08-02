@@ -1,8 +1,16 @@
+//! Code generation functions for a type (trait impl)
+//! - generate code for a ctor
+//! - generate code for a method
+//! - generate code for a static function
+//! - generate code for a type
+//!
+
 use proc_macro2::Ident;
 use quote::{quote, format_ident};
 use syn::{Type, TypePath, TypeReference};
-use crate::parser::{ParsedType, ParsedFunction};
-use crate::function_type::FunctionType;
+
+use crate::types::parser::{ParsedType, ParsedFunction};
+use crate::types::function_type::FunctionType;
 use crate::utilities::{ident_camel_case};
 
 

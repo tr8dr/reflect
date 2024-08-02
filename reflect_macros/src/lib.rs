@@ -11,15 +11,13 @@
 //! fit method, before calling, the arguments will be transformed.
 //!
 
-mod generators;
+mod types;
+mod enums;
 mod utilities;
-mod parser;
-mod function_type;
 
 use proc_macro::TokenStream;
 use quote::{quote, format_ident, ToTokens};
-use syn::parse_macro_input;
-
+use syn::{parse_macro_input, DeriveInput, Data, Fields};
 
 
 /// Attribute to reflect ctors and methods in a type implementation
@@ -63,11 +61,65 @@ use syn::parse_macro_input;
 #[proc_macro_attribute]
 pub fn reflect_type(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as syn::ItemImpl);
-    let parsed_data = parser::parse_type_block (&input);
-    let registrations = generators::generate_reflection_for_type (&parsed_data);
+    let parsed_data = types::parser::parse_type_block (&input);
+    let registrations = types::generator::generate_reflection_for_type (&parsed_data);
 
     quote! {
         #input
         #(#registrations)*
     }.into()
+}
+
+
+/// Attribute to reflect enums
+/// - allow enum creation from `String`
+/// - registration of the `String` -> `enum` conversion
+///
+/// # Usage
+/// Here is some example code:
+/// ```
+///   #[reflect_enum]
+///   enum MAType {
+///       SMA,
+///       EMA,
+///       KAMA
+///   }
+/// ```
+///
+/// The `reflect_enum` macro will generate an implementation of the `FromStr` trait
+/// for the `MAType` enum and register it for conversion between `String` and `MAType`.
+///
+/// This comes in handy when instantiating a type from a ctor expression from config,
+/// such as:  `"Momentum(SMA, [200, 50, 20], [0.20, 0.30, 0.50])"`.  In this expression
+/// there would be a ctor for the `Momentum` type, expressed as:
+///
+/// ```
+///    impl Momentum {
+///        fn new (ma: MAType, windows: &[i32], weights: &[f64]) -> Self;
+///    }
+/// ```
+///
+/// The expression as parsed by the CTorParser will pass in the "SMA" parameter as a string
+/// when it hands off for object creation.  Due to the conversion mapping between `String` and
+/// `MAType`, the argyment will be converted to map to the appropriate enum.
+///
+/// Note that when trying to determine which ctor to call, the reflect library will score all
+/// ctos relative to the arguments provided, and tries to find the best fit.   Conversions may
+/// happen, as needed, if the match is not perfect.
+///
+#[proc_macro_attribute]
+pub fn reflect_enum(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(item as DeriveInput);
+
+    let name = &input.ident;
+    let fromstr = enums::generator::generate_enum_fromstr(&input);
+    let register = enums::generator::generate_enum_registration(&input);
+
+    let expanded = quote! {
+        #input
+        #(#fromstr)
+        #(#register)
+    };
+
+    TokenStream::from(expanded)
 }

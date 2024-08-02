@@ -6,7 +6,7 @@
 
 use syn::{ItemImpl, ImplItem, Type, TypePath, ReturnType, FnArg, Pat};
 use quote::ToTokens;
-use crate::function_type::{FunctionType, determine_function_type};
+use crate::types::function_type::{FunctionType, determine_function_type};
 
 
 /// Representation of a function
