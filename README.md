@@ -20,7 +20,7 @@ This is a work in progress, but should be feature complete (basic) within a week
 ## Example
 Here is an example type `Momentum` and an enum `MAType` that are to be reflected:
 ```rust
-use reflect::{reflect_enum, reflect_type};
+use reflect::{reflect_enum, reflect_impl};
 
 #[reflect_enum]
 enum MAType {
@@ -31,13 +31,16 @@ enum MAType {
 
 type Momentum: BarFunction1D { ... }
 
-#[reflect_type]
+#[reflect_impl]
+impl BarFunction1D for Momentum {
+    // a method
+    fn tick (bar: &Bar) -> f32;
+}
+
+#[reflect_impl]
 impl Momentum {
     // ctor
     fn new (ma: MAType, windows: &[i32], weights: &[f64]) -> Self;
-
-    // a method
-    fn tick (bar: &Bar) -> f32;
 
     // a static function
     fn evaluate (df: &DataFrame) -> Vec[f64];
