@@ -50,7 +50,7 @@ use reflect::CTorParser;
 ...
 
 // get ctor expression from some source (returning: "Momentum(SMA, [200,50,20], [0.20,0.30,0.50])")
-let ctor_expr = config[&"ctor"];
+let ctor_expr = config[&"ctor"].to_string();
 // get the corresponding object
 let obj = CTorParser::create::<BarFunction1D> (ctor_expr);
 ```
