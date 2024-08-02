@@ -86,3 +86,14 @@ let result = type.call (obj, "tick", method_args);
 ```
 In practice it would be pointless to evaluate as above.  More often the use case is the creation of a type and then direct
 evaluation of a `Box<dyn Trait>` where the underlying specific type and instance was created with a ctor expression.
+
+# Roadmap
+The following planned for future releases:
+
+- [ * ] Type reflection
+- [ * ] Enum reflection
+- [ * ] Type conversion and equivalence
+- [  ] ctor parser (*work in progress*)
+- [  ] navigating trait extensions (if possible)
+- [  ] handling of function signatures with Arc, Rc, and other type wrappers
+- [  ] performance
