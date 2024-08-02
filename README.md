@@ -49,10 +49,13 @@ Given a "ctor expression" from configuration, python, or another source, can cre
 use reflect::CTorParser;
 ...
 
-// get ctor expression from some source (returning: "Momentum(SMA, [200,50,20], [0.20,0.30,0.50])")
-let ctor_expr = config[&"ctor"].to_string();
+// get ctor expression from some config source for example
+let ctor_expr1 = config[&"signal/ctor"].to_string();
+// inlined ctor here
+let ctor_expr2 = "Momentum(SMA, [200,50,20], [0.20,0.30,0.50])";
+
 // get the corresponding object
-let obj = CTorParser::create::<BarFunction1D> (ctor_expr);
+let obj = CTorParser::create::<BarFunction1D> (ctor_expr2);
 ```
 
 For illustration purposes, we can also create with raw Rust.  This is tedious, but serves to illustrate aspects of what
