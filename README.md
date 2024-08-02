@@ -51,7 +51,8 @@ let ctor_expr = config[&"ctor"];
 let obj = CTorParser::create::<BarFunction1D> (ctor_expr);
 ```
 
-For illustration purposes, we can also create without parsing in Rust as:
+For illustration purposes, we can also create without parsing in Rust.  This is tedious, but serves to illustrate aspects of what
+the parser will do "under the covers":
 ```rust
 use reflect::TypeInfo;
 ...
