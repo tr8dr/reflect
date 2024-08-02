@@ -8,21 +8,10 @@ The common use cases for this library are:
 
 - **specification of type from configuration**
   * change behavior of application based on configuration, where configuration indicates a "ctor expression", for example `Sample(Momentum(SMA,[200,50,20], [0.20,0.30,0.50]), 900)`
+  * such a type would implement a common Trait, so could be handled generically as `Box<dyn Trait>` and dispatched without knowledge of the specific type.
 - **foreign interfaces**
   * creating rust types and calling methods from Python or other foreign interfaces
 
-## Functionality
-The library provides:
-- a `#[reflect_type]` macro
-  * used in decorating the `impl` of a type, allowing the type to be reflected
-- a `#[reflect_enum]` macro
-  * used in decorating an `enum` so that the enum implements `FromStr` and is known to reflection
-- a *reflection facility* to:
-  * create a named type given type name and arguments
-  * call a method by name on a given type instance
-  * call a static method by name on a given type
-- a parser to parse "ctor expressions"
-  * able to parse and create type instances associated with expressions such as `Sample(Momentum(SMA,[200,50,20], [0.20,0.30,0.50]), 900)`
  
 ## Example
 Here is an example type `Momentum` and an enum `MAType` that are to be reflected:
