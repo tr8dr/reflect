@@ -1,8 +1,8 @@
 # Reflect
 Reflect is a simple reflection library for Rust.   The idea is that:
-- types can created by name or from a ctor expression
-- methods invoked given type instance, method name, and argument vector
-- static functions invoked given type, static function name, and argument vector
+- **types can be created** by name or from a ctor expression
+- **methods can be invoked** given a: type instance, method name, and argument vector
+- **static functions can be invoked** given a: type, static function name, and argument vector
 
 The common use cases for this library are:
 
@@ -74,8 +74,11 @@ let bar = Bar { ... };
 let method_args = vec![ &bar ];
 let result = type.call (obj, "tick", method_args);
 ```
-In practice it would be pointless to evaluate as above.  More often the use case is the creation of a type and then direct
-evaluation of a `Box<dyn Trait>` where the underlying specific type and instance was created with a ctor expression.
+In practice it would be pointless to evaluate in Rust as above.  The more typical use case is to:
+- create a type dynamically via `CTorParser`
+- map to a Trait
+- call functions on the trait without specific knowledge of the underlying type or its parameterization
+  
 
 # Roadmap
 The following is work in progress for a v0.1.0:
