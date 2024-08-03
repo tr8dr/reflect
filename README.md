@@ -2,7 +2,7 @@
 [![License](https://img.shields.io/crates/l/dimensionals)](https://choosealicense.com/licenses/mit/)
 
 Reflect is a simple reflection library for Rust.   The idea is that:
-- **types can be created** by name or from a ctor expression
+- **types can be instantiated** by name or from a ctor expression
 - **methods can be invoked** given a: type instance, method name, and argument vector
 - **static functions can be invoked** given a: type, static function name, and argument vector
 
