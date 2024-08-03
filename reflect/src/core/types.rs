@@ -1,7 +1,8 @@
 
 use std::any::{Any, TypeId};
+use std::collections::HashMap;
 use std::sync::Arc;
-use crate::{Constructor,Method,StaticFunction};
+use crate::{Constructor, Conversions, Method, StaticFunction};
 
 
 /// Information about a type
@@ -21,8 +22,8 @@ pub struct TypeInfo {
     pub name: String,
     pub objtype: TypeId,
     pub constructors: Vec<Box<dyn Constructor>>,
-    pub methods: Vec<Box<dyn Method>>,
-    pub functions: Vec<Box<dyn StaticFunction>>,
+    pub methods: HashMap<String,Box<dyn Method>>,
+    pub functions: HashMap<String,Box<dyn StaticFunction>>,
 }
 
 
@@ -53,19 +54,27 @@ impl TypeInfo {
     /// - new object instance (in the form of `Result<Box<dyn Any>, String>`)
     pub fn create (&self, args: &[Box<dyn Any>]) -> Result<Box<dyn Any>, String> {
         // find matching ctor (if any)
-        let optctor = self.constructors.iter().find(|&ctor| {
-           ctor.matching(args)
-        });
+        let ctor = match Conversions::find_best_match(&self.constructors, args) {
+            Some(c) => c,
+            None => return Err(format!("could not find ctor for {} arguments", args.len()))
+        };
+        let parameters = ctor.arg_types();
 
-        // check whether we found a ctor, then call
-        match optctor {
-            Some(&ref ctor) => {
-                ctor.create(args)
-            }
-            None => {
-                return Err(format!("could not find ctor for {} arguments", args.len()));
-            }
+        // see if immediate match of arguments
+        if ctor.matching(args) {
+            ctor.create (args)
         }
+        // otherwise need to convert arguments to be compatible
+        else if Conversions::score (ctor.arg_types(), args) > 0 {
+            match Conversions::convert_argv(parameters, args) {
+                Some(newargs) => ctor.create (&newargs),
+                None => Err(format!("incompatible arguments for ctor"))
+            }
+
+        } else {
+            Err(format!("incompatible arguments for ctor"))
+        }
+
     }
 
     /// Call method by name
@@ -77,19 +86,25 @@ impl TypeInfo {
     /// # Returns
     /// - method result `Result<Box<dyn Any>, String>`)
     pub fn call (&self, obj: &Box<dyn Any>, name: &str, args: &[Box<dyn Any>]) -> Result<Box<dyn Any>, String> {
-        // find matching ctor (if any)
-        let optmethod = self.methods.iter().find(|&method| {
-           method.name() == name && method.matching(args)
-        });
+        // find matching method
+        let method = match self.methods.get(name) {
+            Some(m) => m,
+            None => return Err(format!("could not find method: '{}'", name))
+        };
+        let parameters = method.arg_types();
 
-        // check whether we found a ctor, then call
-        match optmethod {
-            Some(&ref method) => {
-                method.call(obj, args)
+        // see if immediate match of arguments
+        if method.matching(args) {
+            method.call(obj, args)
+        }
+        // otherwise need to convert arguments to be compatible
+        else if Conversions::score (parameters, args) > 0 {
+            match Conversions::convert_argv(parameters, args) {
+                Some(newargs) => method.call (obj, &newargs),
+                None => Err(format!("incompatible arguments for method: '{}'", name))
             }
-            None => {
-                return Err(format!("could not find method: '{}' for {} arguments", name, args.len()));
-            }
+        } else {
+            Err(format!("incompatible arguments for method: '{}'", name))
         }
     }
 
@@ -102,19 +117,25 @@ impl TypeInfo {
     /// # Returns
     /// - method result `Result<Box<dyn Any>, String>`)
     pub fn callstatic (&self, name: &str, args: &[Box<dyn Any>]) -> Result<Box<dyn Any>, String> {
-        // find matching ctor (if any)
-        let optfun = self.functions.iter().find(|&fun| {
-           fun.name() == name && fun.matching(args)
-        });
+        // find matching static function
+        let function = match self.functions.get(name) {
+            Some(m) => m,
+            None => return Err(format!("could not find function: '{}'", name))
+        };
+        let parameters = function.arg_types();
 
-        // check whether we found a ctor, then call
-        match optfun {
-            Some(&ref fun) => {
-                fun.call(name, args)
+        // see if immediate match of arguments
+        if function.matching(args) {
+            function.call(args)
+        }
+        // otherwise need to convert arguments to be compatible
+        else if Conversions::score (parameters, args) > 0 {
+            match Conversions::convert_argv(parameters, args) {
+                Some(newargs) => function.call (&newargs),
+                None => Err(format!("incompatible arguments for function: '{}'", name))
             }
-            None => {
-                return Err(format!("could not find function: '{}' for {} arguments", name, args.len()));
-            }
+        } else {
+            Err(format!("incompatible arguments for function: '{}'", name))
         }
     }
 
@@ -128,8 +149,8 @@ impl Clone for TypeInfo {
             name: self.name.clone(),
             objtype: self.objtype,
             constructors: self.constructors.iter().map(|c| c.clone_boxed()).collect(),
-            methods: self.methods.iter().map(|m| (m.clone_boxed())).collect(),
-            functions: self.functions.iter().map(|m| (m.clone_boxed())).collect(),
+            methods: self.methods.iter().map(|(k, v)| (k.clone(), v.clone_boxed())).collect(),
+            functions: self.functions.iter().map(|(k, v)| (k.clone(), v.clone_boxed())).collect(),
         }
     }
 }

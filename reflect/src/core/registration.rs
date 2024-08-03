@@ -58,8 +58,8 @@ pub fn register_constructor<T: 'static>(constructor: Box<dyn Constructor>) {
             name: short_name,
             objtype: TypeId::of::<T>(),
             constructors: Vec::new(),
-            methods: Vec::new(),
-            functions: Vec::new()
+            methods: HashMap::new(),
+            functions: HashMap::new()
         })
     });
 
@@ -80,12 +80,13 @@ pub fn register_method<T: 'static>(method: Box<dyn Method>) {
             name: short_name,
             objtype: TypeId::of::<T>(),
             constructors: Vec::new(),
-            methods: Vec::new(),
-            functions: Vec::new()
+            methods: HashMap::new(),
+            functions: HashMap::new()
         })
     });
 
-    Arc::make_mut(type_info).methods.push(method);
+    let key = method.name().to_string();
+    Arc::make_mut(type_info).methods.insert(key, method);
 }
 
 
@@ -103,10 +104,11 @@ pub fn register_function<T: 'static>(function: Box<dyn StaticFunction>) {
             name: short_name,
             objtype: TypeId::of::<T>(),
             constructors: Vec::new(),
-            methods: Vec::new(),
-            functions: Vec::new()
+            methods: HashMap::new(),
+            functions: HashMap::new()
         })
     });
 
-    Arc::make_mut(type_info).functions.push(function);
+    let key = function.name().to_string();
+    Arc::make_mut(type_info).functions.insert(key, function);
 }

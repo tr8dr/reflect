@@ -24,11 +24,16 @@ use syn::{parse_macro_input, DeriveInput, Data, Fields};
 ///
 /// # Usage
 /// ```
-/// #[reflect_type]
+/// #[reflect_impl]
+/// impl Trait for MyType {
+///     fn f (&self, x: f64) -> f64;
+/// }
+///
+/// #[reflect_impl]
 /// impl MyType {
 ///     fn new (&self, a: f64, vec: &[i32]) -> &Self;
 ///
-///     fn f (&self, x: f64) -> f64;
+///     fn g (&self, x: f64) -> f64;
 /// }
 /// ```
 ///
@@ -45,6 +50,7 @@ use syn::{parse_macro_input, DeriveInput, Data, Fields};
 ///   * `let obj = TypeInfo.create (args)`
 /// - call methods by name
 ///   * `TypeInfo.call (obj, "f", arguments)`
+///   * `TypeInfo.call (obj, "g", arguments)`
 ///
 /// The above is not terribly useful within Rust code, however when paired with a parser, from
 /// configuration, python, etc. could have a constructed expression such as:
@@ -59,7 +65,7 @@ use syn::{parse_macro_input, DeriveInput, Data, Fields};
 /// expressions in configuration or from a scripting environment.
 ///
 #[proc_macro_attribute]
-pub fn reflect_type(_attr: TokenStream, item: TokenStream) -> TokenStream {
+pub fn reflect_impl(_attr: TokenStream, item: TokenStream) -> TokenStream {
     let input = parse_macro_input!(item as syn::ItemImpl);
     let parsed_data = types::parser::parse_type_block (&input);
     let registrations = types::generator::generate_reflection_for_type (&parsed_data);

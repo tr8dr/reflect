@@ -93,12 +93,11 @@ pub trait StaticFunction: Function {
     /// call a ctor
     ///
     /// # Arguments
-    /// * `name`: name of function
     /// * `args`: a list of arguments to the ctor
     ///
     /// # Returns
     /// * constructed instance
-    fn call(&self, name: &str, args: &[Box<dyn Any>]) -> Result<Box<dyn Any>, String>;
+    fn call(&self, args: &[Box<dyn Any>]) -> Result<Box<dyn Any>, String>;
 
     /// create a boxed clone of this struct
     fn clone_boxed(&self) -> Box<dyn StaticFunction>;
