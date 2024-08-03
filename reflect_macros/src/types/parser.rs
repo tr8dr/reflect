@@ -4,7 +4,7 @@
 //! - parsing of impl block -> abstract type representation
 //!
 
-use syn::{ItemImpl, ImplItem, Type, TypePath, ReturnType, FnArg, Pat, Path};
+use syn::{ItemImpl, ImplItem, Type, TypePath, Ident, ReturnType, FnArg, Pat, Path};
 use quote::ToTokens;
 use crate::types::function_type::{FunctionType, determine_function_type};
 
@@ -24,7 +24,7 @@ pub struct ParsedFunction {
 /// AST-level representation of a type
 pub struct ParsedType {
     pub type_name: syn::Type,
-    pub trait_name: Option<Path>,
+    pub trait_name: Option<Ident>,
     pub short_type_name: syn::Ident,
     pub type_path: proc_macro2::TokenStream,
     pub functions: Vec<ParsedFunction>,
@@ -89,8 +89,11 @@ pub fn parse_type_block(input: &ItemImpl) -> ParsedType {
 /// Get type name and optional trait that is being implemented
 /// - for a `impl Type` block the trait in (trait,type) will be None
 /// - for a `impl Trait for Type` block the trait will have a value
-fn get_impl_info(item: &ItemImpl) -> (Option<Path>, Type) {
-    let trait_path = item.trait_.as_ref().map(|(_, path, _)| path.clone());
+fn get_impl_info(item: &ItemImpl) -> (Option<Ident>, Type) {
+    // the rust AST interface is pretty nasty
+    let trait_path = item.trait_.as_ref().and_then(|(_, path, _)| {
+        path.segments.last().map(|seg| seg.ident.clone())
+    });
     let type_path = (*item.self_ty).clone();
 
     (trait_path, type_path)

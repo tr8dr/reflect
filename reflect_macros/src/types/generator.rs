@@ -96,8 +96,16 @@ fn generate_method(data: &ParsedType, function: &ParsedFunction) -> proc_macro2:
     let short_type_name = &data.short_type_name;
     let type_path = &data.type_path;
     let method_name = &function.name;
-    let method_impl_name = format_ident!("{}Method", ident_camel_case(method_name));
-    let register_ident = format_ident!("_REGISTER_{}", method_impl_name);
+    let trait_name = &data.trait_name;
+
+    let method_impl_name = match trait_name {
+        Some(tname) => format_ident!("{}{}Method", ident_camel_case(method_name), tname),
+        None => format_ident!("{}Method", ident_camel_case(method_name))
+    };
+    let register_ident = match trait_name {
+        Some(tname) => format_ident!("_REGISTER_{}{}", method_impl_name, tname),
+        None => format_ident!("_REGISTER_{}", method_impl_name)
+    };
 
     let (arg_conversions, arg_names, arg_types) = generate_arg_details(&function.args);
     let return_type = &function.return_type;
@@ -153,8 +161,17 @@ fn generate_method(data: &ParsedType, function: &ParsedFunction) -> proc_macro2:
 fn generate_static(data: &ParsedType, method: &ParsedFunction) -> proc_macro2::TokenStream {
     let short_type_name = &data.short_type_name;
     let method_name = &method.name;
-    let fun_impl_name = format_ident!("{}Static", ident_camel_case(method_name));
-    let register_ident = format_ident!("_REGISTER_{}", fun_impl_name);
+    let trait_name = &data.trait_name;
+
+    let fun_impl_name = match trait_name {
+        Some(tname) => format_ident!("{}{}Method", ident_camel_case(method_name), tname),
+        None => format_ident!("{}Method", ident_camel_case(method_name))
+    };
+    let register_ident = match trait_name {
+        Some(tname) => format_ident!("_REGISTER_{}{}", method_name, tname),
+        None => format_ident!("_REGISTER_{}", method_name)
+    };
+
 
     let (arg_conversions, arg_names, arg_types) = generate_arg_details(&method.args);
     let return_type = &method.return_type;
