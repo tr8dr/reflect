@@ -96,8 +96,10 @@ The following is work in progress for a v0.1.0:
 - [x] (impl) Type reflection
 - [x] Enum reflection
 - [x] Type conversion and equivalence
-- [ ] Rework reflect_type to be reflect_impl and merge multiple impls into one type
+- [x] Fuzzy matching and conversion for function call arguments
+- [x] Rework reflect_type to be reflect_impl and merge multiple impls into one type
 - [ ] ctor parser
+- [ ] expand unit tests
    
 For future releases:
 - [ ] handling of function signatures with Arc, Rc, and other type wrappers
