@@ -11,28 +11,29 @@
 //! fit method, before calling, the arguments will be transformed.
 //!
 
+mod types;
+mod enums;
+mod utilities;
+
 use proc_macro::TokenStream;
 use quote::{quote, format_ident, ToTokens};
-use syn::{parse_macro_input, ItemImpl, ImplItem, ReturnType, TypeReference, Ident, Type, TypePath, FnArg, Pat};
-
-
-/// Types of functions we may encounter in a type
-enum FunctionType {
-    Constructor,
-    Method,
-    Static,
-}
+use syn::{parse_macro_input, DeriveInput, Data, Fields};
 
 
 /// Attribute to reflect ctors and methods in a type implementation
 ///
 /// # Usage
 /// ```
-/// #[reflect_type]
-/// impl MyType {
-///     fn new (&self, a: f64, b: f64) -> &Self;
-///
+/// #[reflect_impl]
+/// impl Trait for MyType {
 ///     fn f (&self, x: f64) -> f64;
+/// }
+///
+/// #[reflect_impl]
+/// impl MyType {
+///     fn new (&self, a: f64, vec: &[i32]) -> &Self;
+///
+///     fn g (&self, x: f64) -> f64;
 /// }
 /// ```
 ///
@@ -49,6 +50,7 @@ enum FunctionType {
 ///   * `let obj = TypeInfo.create (args)`
 /// - call methods by name
 ///   * `TypeInfo.call (obj, "f", arguments)`
+///   * `TypeInfo.call (obj, "g", arguments)`
 ///
 /// The above is not terribly useful within Rust code, however when paired with a parser, from
 /// configuration, python, etc. could have a constructed expression such as:
@@ -56,244 +58,17 @@ enum FunctionType {
 /// In json config
 /// ```
 /// {
-///    "ctor": "MyType(42, 3.1415926)"
+///    "ctor": "MyType(3.149256, [200, 50, 20])"
 /// }
 /// ```
 /// and use a parser (which we will provide) to construct types, nested types, etc. based on
 /// expressions in configuration or from a scripting environment.
 ///
 #[proc_macro_attribute]
-pub fn reflect_type(_attr: TokenStream, item: TokenStream) -> TokenStream {
-let input = parse_macro_input!(item as ItemImpl);
-    let type_name = &input.self_ty;
-
-    // get type short name
-    let short_type_name = match type_name.as_ref() {
-        Type::Path(TypePath { path, .. }) if !path.segments.is_empty() => path.segments.last().unwrap().ident.clone(),
-        _ => panic!("Unsupported type in reflect_type"),
-    };
-
-    // get type name
-    let type_path = if let Type::Path(type_path) = type_name.as_ref() {
-        type_path.to_token_stream()
-    } else {
-        panic!("Expected a viable type")
-    };
-
-    // Helper function to check if the return type is Self or impl Trait
-    fn is_self_or_impl_trait(ty: &Type) -> bool {
-        match ty {
-            Type::Path(type_path) if type_path.path.is_ident("Self") => true,
-            Type::ImplTrait(_) => true,
-            _ => false,
-        }
-    }
-
-    // create code for each ctor or method
-    let registrations = input.items.iter().filter_map(|item| {
-        if let ImplItem::Method(method) = item {
-            let method_name = &method.sig.ident;
-
-            // Determine if this is a constructor, instance method, or static method
-            let function_type = if method.sig.receiver().is_none() {
-                match &method.sig.output {
-                    ReturnType::Type(_, ty) =>
-                        if is_self_or_impl_trait(ty) { FunctionType::Constructor } else { FunctionType::Static },
-                    ReturnType::Default =>
-                        FunctionType::Static,
-                }
-            } else {
-                FunctionType::Method
-            };
-
-            // get arguments for function
-            let args = method.sig.inputs.iter()
-                .filter_map(|arg| if let FnArg::Typed(pat_type) = arg {
-                    if let Pat::Ident(pat_ident) = &*pat_type.pat {
-                        Some((pat_ident.ident.clone(), &*pat_type.ty))
-                    } else { None }
-                } else { None })
-                .collect::<Vec<_>>();
-
-            // generate `name = arg[i]` code
-            let arg_conversions = args.iter().enumerate().map(|(i, (name, parameter_type))| {
-                generate_arg_conversion(i, name, parameter_type)
-            }).collect::<Vec<_>>();
-
-            // names of arguments
-            let arg_names = args.iter().map(|(name, _)| quote! { #name }).collect::<Vec<_>>();
-            // type ids of arguments
-            let (return_type, return_statement) = match &method.sig.output {
-                ReturnType::Default => (quote! { () }, quote! { Ok(Box::new(())) }),
-                ReturnType::Type(_, ty) => (quote! { #ty }, quote! { Ok(Box::new(result)) }),
-            };
-
-            let arg_types = args.iter()
-                .map(|(_, ty)| quote! { std::any::TypeId::of::<#ty>() })
-                .collect::<Vec<_>>();
-
-            match function_type {
-                // constructor functions
-                FunctionType::Constructor => {
-                    let ctor_name = format_ident!("{}Constructor", ident_camel_case(method_name));
-                    let register_ident = format_ident!("_REGISTER_{}", ctor_name);
-
-                    Some(quote! {
-                        /// specific Constructor type
-                        #[derive(Clone)]
-                        struct #ctor_name {
-                            _arg_types: Vec<std::any::TypeId>
-                        }
-
-                        /// implementation of Function trait for the given ctor
-                        impl ::reflect::Function for #ctor_name {
-                            fn name(&self) -> &str {
-                                &"*"
-                            }
-
-                            fn arg_types(&self) -> &[std::any::TypeId] {
-                                &self._arg_types
-                            }
-
-                            fn return_type(&self) -> std::any::TypeId {
-                                std::any::TypeId::of::<#return_type>()
-                            }
-                        }
-
-                        /// implementation of Constructor trait for the given ctor
-                        impl ::reflect::Constructor for #ctor_name {
-                            fn create(&self, args: &[Box<dyn std::any::Any>]) -> Result<Box<dyn std::any::Any>, String> {
-                                #(#arg_conversions)*
-                                let result = #short_type_name::#method_name(#(#arg_names),*);
-                                #return_statement
-                            }
-
-                            fn clone_boxed(&self) -> Box<dyn Constructor> {
-                                Box::new(self.clone())
-                            }
-                        }
-
-                        /// auto-registration function
-                        #[ctor::ctor]
-                        fn #register_ident() {
-                            ::reflect::register_constructor::<#short_type_name>(Box::new(#ctor_name {
-                                _arg_types: vec![#(#arg_types),*]
-                            }));
-                        }
-                    })
-                }
-
-                // normal method functions
-                FunctionType::Method => {
-                    let method_impl_name = format_ident!("{}Method", ident_camel_case(method_name));
-                    let register_ident = format_ident!("_REGISTER_{}", method_impl_name);
-
-                    Some(quote! {
-                        /// specific Method type
-                        #[derive(Clone)]
-                        struct #method_impl_name {
-                            _name: String,
-                            _arg_types: Vec<std::any::TypeId>
-                        }
-
-                        /// implementation of Function trait for the given method
-                        impl ::reflect::Function for #method_impl_name {
-                            fn name(&self) -> &str {
-                                &self._name
-                            }
-
-                            fn arg_types(&self) -> &[std::any::TypeId] {
-                                &self._arg_types
-                            }
-
-                            fn return_type(&self) -> std::any::TypeId {
-                                std::any::TypeId::of::<#return_type>()
-                            }
-                        }
-
-                        /// implementation of Method trait for the given method
-                        impl ::reflect::Method for #method_impl_name {
-                            fn call(&self, obj: &Box<dyn std::any::Any>, args: &[Box<dyn std::any::Any>]) -> Result<Box<dyn std::any::Any>, String> {
-                                #(#arg_conversions)*
-                                let realobj = obj.downcast_ref::<#type_path>().expect("Failed to downcast to correct type");
-                                let result = realobj.#method_name(#(#arg_names),*);
-                                #return_statement
-                            }
-
-                            fn clone_boxed(&self) -> Box<dyn Method> {
-                                Box::new(self.clone())
-                            }
-                        }
-
-                        /// auto-registration function
-                        #[ctor::ctor]
-                        fn #register_ident() {
-                            ::reflect::register_method::<#short_type_name>(Box::new(#method_impl_name {
-                                _name: stringify!(#method_name).to_string(),
-                                _arg_types: vec![#(#arg_types),*]
-                            }));
-                        }
-                    })
-                }
-
-                // Static functions
-                FunctionType::Static => {
-                    let fun_impl_name = format_ident!("{}Static", ident_camel_case(method_name));
-                    let register_ident = format_ident!("_REGISTER_{}", fun_impl_name);
-
-                    Some(quote! {
-                        /// specific Method type
-                        #[derive(Clone)]
-                        struct #fun_impl_name {
-                            _name: String,
-                            _arg_types: Vec<std::any::TypeId>
-                        }
-
-                        /// implementation of Function trait for the given method
-                        impl ::reflect::Function for #fun_impl_name {
-                            fn name(&self) -> &str {
-                                &self._name
-                            }
-
-                            fn arg_types(&self) -> &[std::any::TypeId] {
-                                &self._arg_types
-                            }
-
-                            fn return_type(&self) -> std::any::TypeId {
-                                std::any::TypeId::of::<#return_type>()
-                            }
-                        }
-
-                        /// implementation of Method trait for the given method
-                        impl ::reflect::StaticFunction for #fun_impl_name {
-                            fn call(&self, args: &[Box<dyn std::any::Any>]) -> Result<Box<dyn std::any::Any>, String> {
-                                #(#arg_conversions)*
-                                let result = #short_type_name::#method_name(#(#arg_names),*);
-                                #return_statement
-                            }
-
-                            fn clone_boxed(&self) -> Box<dyn Method> {
-                                Box::new(self.clone())
-                            }
-                        }
-
-                        /// auto-registration function
-                        #[ctor::ctor]
-                        fn #register_ident() {
-                            ::reflect::register_static::<#short_type_name>(Box::new(#fun_impl_name {
-                                _name: stringify!(#method_name).to_string(),
-                                _arg_types: vec![#(#arg_types),*]
-                            }));
-                        }
-                    })
-                }
-            }
-        } else {
-            None
-        }
-    }).collect::<Vec<_>>();
-
-    eprintln!("last: {:?}", registrations.last().unwrap().to_string());
+pub fn reflect_impl(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(item as syn::ItemImpl);
+    let parsed_data = types::parser::parse_type_block (&input);
+    let registrations = types::generator::generate_reflection_for_type (&parsed_data);
 
     quote! {
         #input
@@ -302,109 +77,55 @@ let input = parse_macro_input!(item as ItemImpl);
 }
 
 
-/// Handle argument dereferencing dependent on type
+/// Attribute to reflect enums
+/// - allow enum creation from `String`
+/// - registration of the `String` -> `enum` conversion
 ///
-/// # How this works
-/// - creates a `let varname = deferenced value from args[i]`, for each argument
-/// - this will later be placed in the body of the call function, so that the underlying
-///   method can be dispatched
+/// # Usage
+/// Here is some example code:
+/// ```
+///   #[reflect_enum]
+///   enum MAType {
+///       SMA,
+///       EMA,
+///       KAMA
+///   }
+/// ```
 ///
-/// # Some ugliness
-/// - some arguments will come in as `Vec<T>` whereas the receiving function will
-///   usually take a slice: `&[T]`.  In this scenario, there is code to determine if the
-///   target function parameter is a slice `&[T]` and if the incoming value is a `Vec[t]`
-///   will get a slice on the `Vec[T]` argument
+/// The `reflect_enum` macro will generate an implementation of the `FromStr` trait
+/// for the `MAType` enum and register it for conversion between `String` and `MAType`.
 ///
-/// - aside from slices, there are references, primitive types, and struct based types.  There
-///   may be some special handling for each in properly dereferencing
+/// This comes in handy when instantiating a type from a ctor expression from config,
+/// such as:  `"Momentum(SMA, [200, 50, 20], [0.20, 0.30, 0.50])"`.  In this expression
+/// there would be a ctor for the `Momentum` type, expressed as:
 ///
-fn generate_arg_conversion(i: usize, name: &Ident, parameter_type: &Type) -> proc_macro2::TokenStream {
-    match parameter_type {
-        Type::Reference(TypeReference { elem, .. }) => {
-            if let Type::Slice(_) = &**elem {
-                // Handle &[T]
-                quote! {
-                    let #name = match args.get(#i) {
-                        Some(arg) => {
-                            if let Some(vec) = arg.downcast_ref::<Vec<_>>() {
-                                vec.as_slice()
-                            } else if let Some(slice) = arg.downcast_ref::<#parameter_type>() {
-                                *slice
-                            } else {
-                                return Err(format!("Invalid argument type for parameter {}", #i));
-                            }
-                        },
-                        None => return Err(format!("Missing argument for parameter {}", #i)),
-                    };
-                }
-            } else {
-                // Handle other reference types
-                quote! {
-                    let #name = match args.get(#i).and_then(|arg| arg.downcast_ref::<#parameter_type>()) {
-                        Some(value) => *value,
-                        None => return Err(format!("Invalid argument type for parameter {}", #i)),
-                    };
-                }
-            }
-        },
-        Type::Path(TypePath { path, .. }) => {
-            if path.segments.last().map_or(false, |seg| seg.ident == "Vec") {
-                // Handle Vec<T>
-                quote! {
-                    let #name = match args.get(#i) {
-                        Some(arg) => {
-                            if let Some(vec) = arg.downcast_ref::<#parameter_type>() {
-                                vec.clone()
-                            } else {
-                                return Err(format!("Invalid argument type for parameter {}", #i));
-                            }
-                        },
-                        None => return Err(format!("Missing argument for parameter {}", #i)),
-                    };
-                }
-            } else {
-                // Handle primitive types
-                quote! {
-                    let #name = match args.get(#i).and_then(|arg| arg.downcast_ref::<#parameter_type>()) {
-                        Some(value) => *value,
-                        None => return Err(format!("Invalid argument type for parameter {}", #i)),
-                    };
-                }
-            }
-        },
-        _ => {
-            // Handle other types
-            quote! {
-                let #name = match args.get(#i).and_then(|arg| arg.downcast_ref::<#parameter_type>()) {
-                    Some(value) => value.clone(),
-                    None => return Err(format!("Invalid argument type for parameter {}", #i)),
-                };
-            }
-        }
-    }
-}
+/// ```
+///    impl Momentum {
+///        fn new (ma: MAType, windows: &[i32], weights: &[f64]) -> Self;
+///    }
+/// ```
+///
+/// The expression as parsed by the CTorParser will pass in the "SMA" parameter as a string
+/// when it hands off for object creation.  Due to the conversion mapping between `String` and
+/// `MAType`, the argyment will be converted to map to the appropriate enum.
+///
+/// Note that when trying to determine which ctor to call, the reflect library will score all
+/// ctos relative to the arguments provided, and tries to find the best fit.   Conversions may
+/// happen, as needed, if the match is not perfect.
+///
+#[proc_macro_attribute]
+pub fn reflect_enum(_attr: TokenStream, item: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(item as DeriveInput);
 
+    let name = &input.ident;
+    let fromstr = enums::generator::generate_enum_fromstr(&input);
+    let register = enums::generator::generate_enum_registration(&input);
 
-/// Convert to camel-case
-fn to_camel_case(s: &str) -> String {
-    let mut result = String::with_capacity(s.len());
-    let mut capitalize_next = true;
+    let expanded = quote! {
+        #input
+        #(#fromstr)
+        #(#register)
+    };
 
-    for ch in s.chars() {
-        if ch == '_' {
-            capitalize_next = true;
-        } else if capitalize_next {
-            result.extend(ch.to_uppercase());
-            capitalize_next = false;
-        } else {
-            result.push(ch.to_lowercase().next().unwrap());
-        }
-    }
-
-    result
-}
-
-/// Convert identifier to camel-case
-fn ident_camel_case(s: &proc_macro2::Ident) -> String {
-    return to_camel_case(&s.to_string());
+    TokenStream::from(expanded)
 }

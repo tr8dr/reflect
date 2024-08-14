@@ -1,6 +1,6 @@
 
 use reflect::{TypeInfo, Constructor, Method };
-use reflect_macros::reflect_type;
+use reflect_macros::reflect_impl;
 use std::any::Any;
 
 
@@ -9,7 +9,7 @@ struct Test1 {
     beta: f64
 }
 
-#[reflect_type]
+#[reflect_impl]
 impl Test1 {
     fn create1 (a: i32) -> Self {
         return Test1 { alpha: a, beta: f64::from(a) * f64::from(a) };

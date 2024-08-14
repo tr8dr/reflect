@@ -187,6 +187,39 @@ impl Conversions {
         map.get(&(from,to)).cloned()
     }
 
+    /// Score a given argument vector versus target parameter types
+    /// - higher score implies a better fit
+    ///
+    /// # Arguments
+    /// * `tartget`: function parameter types
+    /// * `args`: incoming argument vector for function
+    ///
+    /// # Returns
+    /// * score for given argument set.  Higher positive value -> better fit and lower implies
+    ///   worse fit.  A negative score implies no fit at all
+    pub fn score (target: &[TypeId], args: &[Box<dyn Any>]) -> i32 {
+        // if # of args and parameters don't match punt
+        if target.len() != args.len() {
+            return -200;
+        }
+
+        // otherwise score parameters
+        let mut score = 0;
+        for (to_arg, from_arg) in target.iter().zip(args) {
+            let arg_type = (**from_arg).type_id();
+            match Conversions::find(arg_type, *to_arg) {
+                Some(conversion) => {
+                    score += conversion.score;
+                }
+                None => {
+                    score = -100;
+                    break
+                }
+            }
+        }
+        score
+    }
+
     /// Find best matched ctor based on arguments
     /// - note that this method should only be used if the candidate list has been reduced to
     ///   those candidates with the appropriate name or for ctors, where the name is not
@@ -209,21 +242,9 @@ impl Conversions {
 
         for candidate in candidates {
             let cargs: &[TypeId] = candidate.arg_types();
-            if cargs.len() != args.len() { continue }
 
             // evaluate score of given arguments relative to argument types of candidate
-            let mut score = 0;
-            for (to_arg, from_arg) in cargs.iter().zip(args) {
-                match Conversions::find(from_arg.type_id(), *to_arg) {
-                    Some(conversion) => {
-                        score += conversion.score;
-                    }
-                    None => {
-                        score = -100;
-                        break
-                    }
-                }
-            }
+            let score = Self::score(cargs, args);
 
             if score > best_score {
                 best_score = score;
@@ -241,16 +262,19 @@ impl Conversions {
     /// Convert incoming argument vector to be compatible with target function arguments
     ///
     /// # Arguments
-    /// * `function`: the
-    pub fn convert_argv<T: ?Sized + Function> (function: &Box<T>, args: &[Box<dyn Any>]) -> Option<Vec<Box<dyn Any>>> {
+    /// * `parameters`: target function parameter types
+    /// * `args`: incoming argv to be converted
+    ///
+    /// # Returns
+    /// * converted arguments or None if failed
+    pub fn convert_argv (parameters: &[TypeId], args: &[Box<dyn Any>]) -> Option<Vec<Box<dyn Any>>> {
         // check target args vs provided args
-        let fun_types = function.arg_types();
-        if fun_types.len() != args.len() {
+        if parameters.len() != args.len() {
             return None;
         }
 
         let mut newargs: Vec<Box<dyn Any>> = Vec::new();
-        for (to_type, from_arg) in fun_types.iter().zip(args) {
+        for (to_type, from_arg) in parameters.iter().zip(args) {
             match Conversions::find(from_arg.type_id(), *to_type) {
                 Some(conversion) => {
                     let cfun = conversion.convert;
